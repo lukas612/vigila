@@ -50,8 +50,15 @@ a local `vigila.db` SQLite file otherwise). The `vigila` Supabase project
 (ref `wwxlzvfxlfuodikcamlq`, eu-west-1) already has the schema applied:
 
 ```bash
-export DATABASE_URL=postgresql://postgres:<db-password>@db.wwxlzvfxlfuodikcamlq.supabase.co:5432/postgres
+export DATABASE_URL=postgresql://postgres.wwxlzvfxlfuodikcamlq:<db-password>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
 ```
+
+**Use the Supavisor pooler, not the direct connection.** The direct
+`db.wwxlzvfxlfuodikcamlq.supabase.co:5432` host is IPv6-only, and several
+common hosts (Render, Vercel, GitHub Actions) have no IPv6 egress at all —
+this is exactly what broke the first Render deploy (`Network is
+unreachable`). The pooler host above is always IPv4. Locally this doesn't
+matter (most ISPs/laptops have IPv6), so either works for local dev.
 
 **⚠️ Row Level Security is disabled on all 6 tables** (Supabase flags this
 as a critical finding, since the `public` schema is exposed via its
