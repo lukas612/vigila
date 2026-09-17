@@ -4,7 +4,7 @@ import asyncio
 import logging
 from datetime import date
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -107,23 +107,44 @@ async def check(payload: CheckRequest, request: Request, db: Session = Depends(g
     return CheckResponse(found=result.found, notifications=notifications)
 
 
+@app.get("/api/stats/dates")
+def stats_dates(db: Session = Depends(get_db)) -> list[str]:
+    """Every day a background crawl has stored data for, most recent first —
+    powers the day picker on the Estadísticas page."""
+    rows = db.query(DailyStat.stat_date).distinct().order_by(DailyStat.stat_date.desc()).all()
+    return [r[0].isoformat() for r in rows]
+
+
 @app.get("/api/stats/latest", response_model=DailyStatsResponse)
-def stats_latest(db: Session = Depends(get_db)) -> DailyStatsResponse:
-    """Aggregate-only: counts and totals per locality for the most recent day
-    a background crawl has stored (see scripts/crawl_daily_stats.py). Never
-    exposes anything at the level of an individual expediente or DNI."""
-    latest_date = db.query(DailyStat.stat_date).order_by(DailyStat.stat_date.desc()).limit(1).scalar()
-    if latest_date is None:
-        raise HTTPException(status_code=404, detail="Todavía no hay datos agregados disponibles")
+def stats_latest(
+    stat_date: str | None = Query(None, alias="date", description="AAAA-MM-DD; por defecto el día más reciente"),
+    db: Session = Depends(get_db),
+) -> DailyStatsResponse:
+    """Aggregate-only: counts and totals per locality for a given day (or the
+    most recent one a background crawl has stored — see
+    scripts/crawl_daily_stats.py). Never exposes anything at the level of an
+    individual expediente or DNI."""
+    if stat_date:
+        try:
+            target_date = date.fromisoformat(stat_date)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Fecha inválida, usa AAAA-MM-DD") from None
+    else:
+        target_date = db.query(DailyStat.stat_date).order_by(DailyStat.stat_date.desc()).limit(1).scalar()
+        if target_date is None:
+            raise HTTPException(status_code=404, detail="Todavía no hay datos agregados disponibles")
 
     rows = (
         db.query(DailyStat)
-        .filter(DailyStat.stat_date == latest_date)
+        .filter(DailyStat.stat_date == target_date)
         .order_by(DailyStat.expedientes_count.desc())
         .all()
     )
+    if not rows:
+        raise HTTPException(status_code=404, detail="No hay datos agregados para esa fecha")
+
     return DailyStatsResponse(
-        stat_date=latest_date.isoformat(),
+        stat_date=target_date.isoformat(),
         total_expedientes=sum(r.expedientes_count for r in rows),
         total_importe=sum(float(r.importe_total or 0) for r in rows),
         localidades=[

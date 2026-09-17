@@ -89,6 +89,15 @@
   }
   .privacy svg{ flex-shrink:0; margin-top:1px; color: var(--brand); }
 
+  .date-row{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
+  .date-row label{ font-size:13.5px; color: var(--ink-soft); font-weight:600; }
+  .date-select{
+    font-family: var(--font-ui); font-size:14px; font-weight:600; color: var(--ink);
+    padding:8px 14px; border:1.5px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--paper); cursor:pointer;
+  }
+  .date-select:focus{ outline:none; border-color: var(--brand); }
+
   .state{ text-align:center; padding:60px 20px; color: var(--ink-soft); }
   .state h2{ font-family: var(--font-head); color: var(--ink); font-size:20px; margin:0 0 8px; }
   [hidden]{ display:none !important; }
@@ -141,6 +150,11 @@
   </div>
 
   <div id="statsContent" hidden>
+    <div class="date-row">
+      <label for="dateSelect">Datos del día:</label>
+      <select class="date-select" id="dateSelect"></select>
+    </div>
+
     <div class="tiles">
       <div class="tile"><div class="n" id="tileExpedientes">—</div><div class="l">expedientes ese día</div></div>
       <div class="tile"><div class="n" id="tileImporte">—</div><div class="l">en sanciones</div></div>
@@ -189,44 +203,55 @@
     return Math.round(value).toLocaleString('es-ES') + ' €';
   }
 
-  async function load(){
+  function formatDate(iso){
+    const [y, m, d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  async function loadStats(dateIso){
+    const resp = await fetch(API_BASE + '/api/stats/latest?date=' + encodeURIComponent(dateIso));
+    if(!resp.ok) throw new Error('no data for ' + dateIso);
+    const data = await resp.json();
+    if(!data.localidades || !data.localidades.length) throw new Error('empty');
+
+    const media = data.total_importe / data.total_expedientes;
+
+    document.getElementById('tileExpedientes').textContent = data.total_expedientes.toLocaleString('es-ES');
+    document.getElementById('tileImporte').textContent = formatEuros(data.total_importe);
+    document.getElementById('tileMedia').textContent = Math.round(media).toLocaleString('es-ES') + ' €';
+    document.getElementById('tileLocalidades').textContent = data.localidades.length.toLocaleString('es-ES');
+    document.getElementById('cardSub').textContent = `Recuento de expedientes por localidad del denunciado — ${formatDate(data.stat_date)}`;
+    document.getElementById('lastUpdated').textContent = `Datos del ${formatDate(data.stat_date)}. Se añade un día nuevo cada 24h.`;
+
+    const top = data.localidades.slice(0, 40);
+    const max = Math.max(...top.map(l => l.expedientes_count));
+    const bars = document.getElementById('fullBars');
+    bars.innerHTML = '';
+    top.forEach(l => {
+      const row = document.createElement('div');
+      row.className = 'bar-row';
+      row.innerHTML = `
+        <div class="bar-label">${escapeHtml(l.localidad)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(l.expedientes_count/max*100).toFixed(1)}%"></div></div>
+        <div class="bar-value">${l.expedientes_count}</div>
+      `;
+      bars.appendChild(row);
+    });
+  }
+
+  async function init(){
     try{
-      const resp = await fetch(API_BASE + '/api/stats/latest');
+      const datesResp = await fetch(API_BASE + '/api/stats/dates');
       document.getElementById('loadingState').hidden = true;
-      if(!resp.ok){
-        document.getElementById('emptyState').hidden = false;
-        return;
-      }
-      const data = await resp.json();
-      if(!data.localidades || !data.localidades.length){
-        document.getElementById('emptyState').hidden = false;
-        return;
-      }
+      if(!datesResp.ok) throw new Error('dates endpoint failed');
+      const dates = await datesResp.json();
+      if(!dates.length) throw new Error('no dates yet');
 
-      const [y, m, d] = data.stat_date.split('-');
-      const media = data.total_importe / data.total_expedientes;
+      const select = document.getElementById('dateSelect');
+      select.innerHTML = dates.map(d => `<option value="${d}">${formatDate(d)}</option>`).join('');
+      select.addEventListener('change', () => loadStats(select.value).catch(() => {}));
 
-      document.getElementById('tileExpedientes').textContent = data.total_expedientes.toLocaleString('es-ES');
-      document.getElementById('tileImporte').textContent = formatEuros(data.total_importe);
-      document.getElementById('tileMedia').textContent = Math.round(media).toLocaleString('es-ES') + ' €';
-      document.getElementById('tileLocalidades').textContent = data.localidades.length.toLocaleString('es-ES');
-      document.getElementById('cardSub').textContent = `Recuento de expedientes por localidad del denunciado — ${d}/${m}/${y}`;
-      document.getElementById('lastUpdated').textContent = `Datos del ${d}/${m}/${y}, actualizados una vez al día.`;
-
-      const top = data.localidades.slice(0, 40);
-      const max = Math.max(...top.map(l => l.expedientes_count));
-      const bars = document.getElementById('fullBars');
-      top.forEach(l => {
-        const row = document.createElement('div');
-        row.className = 'bar-row';
-        row.innerHTML = `
-          <div class="bar-label">${escapeHtml(l.localidad)}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${(l.expedientes_count/max*100).toFixed(1)}%"></div></div>
-          <div class="bar-value">${l.expedientes_count}</div>
-        `;
-        bars.appendChild(row);
-      });
-
+      await loadStats(dates[0]); // most recent crawled day — normally "ayer"
       document.getElementById('statsContent').hidden = false;
     }catch(e){
       document.getElementById('loadingState').hidden = true;
@@ -234,7 +259,7 @@
     }
   }
 
-  load();
+  init();
 })();
 </script>
 
