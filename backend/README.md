@@ -46,11 +46,34 @@ Then open http://localhost:8000 — the landing page is served from
 `../frontend` and calls the API on the same origin.
 
 Set `DATABASE_URL` to point at Postgres/Supabase in production (defaults to
-a local `vigila.db` SQLite file otherwise):
+a local `vigila.db` SQLite file otherwise). The `vigila` Supabase project
+(ref `wwxlzvfxlfuodikcamlq`, eu-west-1) already has the schema applied:
 
 ```bash
-export DATABASE_URL=postgresql://postgres:<password>@<host>:5432/postgres
+export DATABASE_URL=postgresql://postgres:<db-password>@db.wwxlzvfxlfuodikcamlq.supabase.co:5432/postgres
 ```
+
+**⚠️ Row Level Security is disabled on all 6 tables** (Supabase flags this
+as a critical finding, since the `public` schema is exposed via its
+auto-generated REST API to anyone holding the anon/publishable key). This
+backend never uses that REST API — it talks to Postgres directly via
+`DATABASE_URL` with SQLAlchemy — so there's no exposure through this app
+itself. Still, enable RLS before this project's anon key is ever used
+anywhere else (e.g. a future client-side Supabase SDK integration):
+
+```sql
+ALTER TABLE "public"."users" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."monitored_ids" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."checks_free" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."notifications" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."notification_runs" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."waitlist_signups" ENABLE ROW LEVEL SECURITY;
+```
+
+This wasn't auto-applied: enabling RLS with no policies blocks all access
+through PostgREST, so add policies (or explicitly decide these tables
+should only ever be reached through this backend's own DB role) before
+flipping it on.
 
 ## Tests
 
