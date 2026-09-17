@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
@@ -102,8 +101,11 @@ def main() -> None:
 
     stats = crawl(day)
     if not stats:
-        logger.warning("no rows found for %s — not overwriting any existing stored stats", day)
-        sys.exit(1)
+        # Expected on weekends/holidays — the BOE doesn't publish then, not
+        # a crawl failure. Confirmed live: 2026-09-13 (a Sunday) has zero
+        # MATERIA=43 bulletins nationally. Leave any existing row alone.
+        logger.info("no bulletins published on %s (weekend/holiday?) — nothing to store", day)
+        return
 
     store(day, stats)
     total_count = sum(c for c, _ in stats.values())
