@@ -199,6 +199,32 @@
   .feat h3{ font-family: var(--font-head); font-size:14.5px; font-weight:700; margin:0 0 6px; }
   .feat p{ font-size:13.5px; color: var(--ink-soft); margin:0; }
 
+  section.pricing{ padding: 60px 0; background: var(--surface); }
+  .plan-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:22px; max-width:720px; margin:0 auto; }
+  .plan-card{
+    background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow-sm);
+    padding: 28px; text-align:center; border: 1.5px solid var(--line); position:relative;
+  }
+  .plan-card.featured{ border-color: var(--accent); box-shadow: var(--shadow); }
+  .plan-badge{
+    position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+    background: var(--accent); color:#2A1B00; font-size:11.5px; font-weight:700;
+    padding:4px 12px; border-radius:20px; white-space:nowrap;
+  }
+  .plan-name{ font-family: var(--font-head); font-weight:700; font-size:18px; margin-bottom:8px; }
+  .plan-price{ font-family: var(--font-head); font-weight:800; font-size:36px; color: var(--brand); margin-bottom:18px; }
+  .plan-price span{ font-size:14px; font-weight:600; color: var(--ink-faint); }
+  .plan-features{ list-style:none; padding:0; margin:0 0 20px; text-align:left; font-size:14px; color: var(--ink-soft); display:flex; flex-direction:column; gap:8px; }
+  .plan-features li{ padding-left:20px; position:relative; }
+  .plan-features li::before{ content:'✓'; color: var(--ok); font-weight:700; position:absolute; left:0; }
+  .plan-cta{ display:flex; flex-direction:column; gap:8px; }
+  .plan-cta input{
+    font-family: var(--font-ui); font-size:14px; padding:11px 14px; border:1.5px solid var(--line);
+    border-radius: var(--radius-sm); background: var(--surface); color: var(--ink);
+  }
+  .plan-cta input:focus{ outline:none; border-color: var(--brand); background: var(--paper); }
+  .plan-confirm{ font-size:13px; }
+
   section.cta-band{
     background: var(--accent); text-align:center; padding: 46px 0; margin-top: 20px;
   }
@@ -213,7 +239,7 @@
   }
   @media (max-width: 520px){
     .hero h1{ font-size:30px; }
-    .badges, .ex-grid, .feat-grid{ grid-template-columns: 1fr; }
+    .badges, .ex-grid, .feat-grid, .plan-grid{ grid-template-columns: 1fr; }
     .check-row{ flex-direction:column; }
     .check-row button{ width:100%; justify-content:center; }
     .email-row{ flex-direction:column; }
@@ -352,6 +378,44 @@
         <svg class="feat-icon" viewBox="0 0 40 40" fill="none"><path d="M8 12h24M8 20h24M8 28h16" stroke="var(--brand)" stroke-width="1.6" stroke-linecap="round"/><path d="M30 26l3 3-6 6" stroke="var(--ok)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <h3>Sin trámites ni letrados</h3>
         <p>Solo información clara. Tú decides si necesitas ayuda legal.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="planes">
+  <div class="wrap">
+    <h2 class="section-title">Planes y precios</h2>
+    <p class="section-sub">Sin permanencia. Cancela cuando quieras.</p>
+    <div class="plan-grid">
+      <div class="plan-card">
+        <div class="plan-name">Individual</div>
+        <div class="plan-price">3,99€<span>/mes</span></div>
+        <ul class="plan-features">
+          <li>1 DNI, NIE o matrícula</li>
+          <li>Vigilancia automática del BOE</li>
+          <li>Aviso por email al instante</li>
+        </ul>
+        <div class="plan-cta">
+          <input type="email" class="plan-email" data-plan="individual" placeholder="tu@email.com">
+          <button class="btn-brand plan-btn" data-plan="individual">Quiero este plan</button>
+        </div>
+        <div class="confirm plan-confirm" data-plan="individual">Gracias — te escribiremos para completar el alta.</div>
+      </div>
+      <div class="plan-card featured">
+        <div class="plan-badge">Familiar / empresa</div>
+        <div class="plan-name">Familiar</div>
+        <div class="plan-price">6,99€<span>/mes</span></div>
+        <ul class="plan-features">
+          <li>Hasta 4 DNIs, NIEs o matrículas</li>
+          <li>Vigilancia automática del BOE</li>
+          <li>Aviso por email al instante</li>
+        </ul>
+        <div class="plan-cta">
+          <input type="email" class="plan-email" data-plan="familiar" placeholder="tu@email.com">
+          <button class="btn-accent plan-btn" data-plan="familiar">Quiero este plan</button>
+        </div>
+        <div class="confirm plan-confirm" data-plan="familiar">Gracias — te escribiremos para completar el alta.</div>
       </div>
     </div>
   </div>
@@ -533,6 +597,26 @@
 
   input.addEventListener('keydown', function(e){ if(e.key === 'Enter') btn.click(); });
   input.addEventListener('input', clearFieldError);
+
+  document.querySelectorAll('.plan-btn').forEach(function(planBtn){
+    planBtn.addEventListener('click', async function(){
+      const plan = planBtn.dataset.plan;
+      const emailInput = document.querySelector('.plan-email[data-plan="' + plan + '"]');
+      const confirmEl = document.querySelector('.plan-confirm[data-plan="' + plan + '"]');
+      const val = emailInput.value.trim();
+      if(!val || !val.includes('@')){ emailInput.focus(); return; }
+      planBtn.disabled = true;
+      try{
+        await fetch(API_BASE + '/api/waitlist', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({email: val, context: 'plan_' + plan})
+        });
+      }catch(e){ /* best-effort */ }
+      confirmEl.classList.add('show');
+      planBtn.textContent = 'Hecho';
+    });
+  });
 })();
 </script>
 
