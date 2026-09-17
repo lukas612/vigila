@@ -11,9 +11,12 @@ from __future__ import annotations
 import io
 import re
 from dataclasses import dataclass
+from datetime import date, timedelta
 
 import httpx
 import pdfplumber
+
+PLAZO_ALEGACION_DIAS = 20
 
 from .boe_client import USER_AGENT
 
@@ -41,6 +44,16 @@ class NotificationRow:
     articulo: str
     puntos: str
     requerimiento: str
+    # Publication date of the edict itself (not `fecha`, which is the
+    # infraction date) — this is what the 20 días naturales plazo counts
+    # from. None when the candidate's date couldn't be determined.
+    published_on: date | None = None
+
+    @property
+    def plazo_alegacion_fin(self) -> date | None:
+        if self.published_on is None:
+            return None
+        return self.published_on + timedelta(days=PLAZO_ALEGACION_DIAS)
 
 
 def normalize(value: str) -> str:
@@ -70,7 +83,7 @@ def fetch_pdf_bytes(pdf_url: str, *, timeout: float = 30.0) -> bytes:
     return resp.content
 
 
-def extract_rows(pdf_bytes: bytes, boe_ref: str) -> list[NotificationRow]:
+def extract_rows(pdf_bytes: bytes, boe_ref: str, published_on: date | None = None) -> list[NotificationRow]:
     """Extract every table row from the PDF, regardless of who it belongs to."""
     rows: list[NotificationRow] = []
     header: list[str | None] | None = None
@@ -121,16 +134,17 @@ def extract_rows(pdf_bytes: bytes, boe_ref: str) -> list[NotificationRow]:
                             articulo=_cell(raw_row, articulo_idx),
                             puntos=_cell(raw_row, puntos_idx),
                             requerimiento=_cell(raw_row, req_idx),
+                            published_on=published_on,
                         )
                     )
     return rows
 
 
-def find_matches(pdf_bytes: bytes, boe_ref: str, value: str) -> list[NotificationRow]:
+def find_matches(pdf_bytes: bytes, boe_ref: str, value: str, published_on: date | None = None) -> list[NotificationRow]:
     """Return only the rows whose IDENTIF or MATRICULA exactly equals `value`."""
     target = normalize(value)
     matches = []
-    for row in extract_rows(pdf_bytes, boe_ref):
+    for row in extract_rows(pdf_bytes, boe_ref, published_on):
         if normalize(row.identif) == target or normalize(row.matricula) == target:
             matches.append(row)
     return matches

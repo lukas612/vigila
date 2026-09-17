@@ -422,6 +422,18 @@
     wireEmail('emailBtnOk', 'confirmOk', 'ok');
   }
 
+  function plazoRow(n){
+    if(n.dias_restantes === null || n.dias_restantes === undefined){
+      return `<div class="row"><span>Plazo</span><span>20 días naturales desde la publicación</span></div>`;
+    }
+    const vencido = n.dias_restantes < 0;
+    const label = vencido
+      ? `Venció hace ${Math.abs(n.dias_restantes)} día${Math.abs(n.dias_restantes) === 1 ? '' : 's'}`
+      : `${n.dias_restantes} día${n.dias_restantes === 1 ? '' : 's'} restantes`;
+    const color = vencido || n.dias_restantes <= 5 ? 'var(--alert)' : 'var(--ink)';
+    return `<div class="row"><span>Plazo hasta ${escapeHtml(n.plazo_alegacion_fin || '—')}</span><span style="color:${color}">${label}</span></div>`;
+  }
+
   function renderAlert(notifications){
     const tables = notifications.map(n => `
       <div class="fine-table">
@@ -429,12 +441,14 @@
         <div class="row"><span>Localidad</span><span>${escapeHtml(n.localidad || '—')}</span></div>
         <div class="row"><span>Importe</span><span>${escapeHtml(n.importe || '—')} €</span></div>
         <div class="row"><span>Precepto</span><span>${escapeHtml(n.precepto || n.articulo || '—')}</span></div>
+        <div class="row"><span>Publicado</span><span>${escapeHtml(n.fecha_publicacion || '—')}</span></div>
+        ${plazoRow(n)}
       </div>
     `).join('');
 
     inner.innerHTML = `
       <div class="status-line">${alertIcon} Tienes ${notifications.length > 1 ? notifications.length + ' notificaciones pendientes' : 'una notificación pendiente'}</div>
-      <div class="result-body">Encontrada${notifications.length > 1 ? 's' : ''} en el Suplemento de Notificaciones del BOE. Tienes 20 días naturales desde la fecha de publicación del edicto para alegar o abonar.</div>
+      <div class="result-body">Encontrada${notifications.length > 1 ? 's' : ''} en el Suplemento de Notificaciones del BOE.</div>
       ${tables}
       <div class="cta-block">
         <p>Suscríbete para que vigilemos este DNI o matrícula automáticamente y te avisemos antes de que venza el plazo.</p>

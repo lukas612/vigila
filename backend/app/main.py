@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import date
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,6 +79,7 @@ async def check(payload: CheckRequest, request: Request, db: Session = Depends(g
     )
     db.commit()
 
+    today = date.today()
     notifications = [
         NotificationOut(
             boe_ref=row.boe_ref,
@@ -89,6 +91,9 @@ async def check(payload: CheckRequest, request: Request, db: Session = Depends(g
             precepto=row.precepto,
             articulo=row.articulo,
             puntos=row.puntos,
+            fecha_publicacion=row.published_on.strftime("%d/%m/%Y") if row.published_on else None,
+            plazo_alegacion_fin=row.plazo_alegacion_fin.strftime("%d/%m/%Y") if row.plazo_alegacion_fin else None,
+            dias_restantes=(row.plazo_alegacion_fin - today).days if row.plazo_alegacion_fin else None,
         )
         for row in result.matches
     ]

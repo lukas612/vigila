@@ -30,7 +30,7 @@ class CheckResult:
 
 def _check_candidate(candidate: boe_client.BoeCandidate, normalized: str) -> list[pdf_parser.NotificationRow]:
     pdf_bytes = pdf_parser.fetch_pdf_bytes(candidate.pdf_url)
-    return pdf_parser.find_matches(pdf_bytes, candidate.boe_ref, normalized)
+    return pdf_parser.find_matches(pdf_bytes, candidate.boe_ref, normalized, candidate.published_on)
 
 
 def run_check(value: str) -> CheckResult:

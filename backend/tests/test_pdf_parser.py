@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from pathlib import Path
 
 from app import pdf_parser
@@ -44,3 +45,19 @@ def test_find_matches_returns_empty_for_unrelated_value():
     matches = pdf_parser.find_matches(SAMPLE_PDF, BOE_REF, "9999ZZZ")
 
     assert matches == []
+
+
+def test_plazo_alegacion_fin_is_20_days_after_publication():
+    published_on = date(2026, 9, 4)
+    matches = pdf_parser.find_matches(SAMPLE_PDF, BOE_REF, "09213675J", published_on)
+
+    assert len(matches) == 1
+    assert matches[0].published_on == published_on
+    assert matches[0].plazo_alegacion_fin == published_on + timedelta(days=20)
+
+
+def test_plazo_alegacion_fin_is_none_without_a_publication_date():
+    matches = pdf_parser.find_matches(SAMPLE_PDF, BOE_REF, "09213675J")
+
+    assert matches[0].published_on is None
+    assert matches[0].plazo_alegacion_fin is None

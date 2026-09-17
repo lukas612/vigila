@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 import httpx
@@ -20,6 +21,9 @@ def test_search_returns_candidates_from_real_result_page():
     assert candidates[0].boe_ref == "BOE-N-2026-672611"
     assert candidates[0].pdf_url.endswith("not.php?id=BOE-N-2026-672611")
     assert candidates[0].pdf_url.startswith("https://www.boe.es")
+    # The publication date comes from the PDF's own URL path
+    # (.../dias/YYYY/MM/DD/not.php...), not from parsing the PDF text.
+    assert candidates[0].published_on == date(2026, 9, 4)
 
 
 @respx.mock

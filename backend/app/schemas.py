@@ -18,6 +18,11 @@ class NotificationOut(BaseModel):
     precepto: str
     articulo: str
     puntos: str
+    fecha_publicacion: str | None = Field(None, description="Fecha de publicación del edicto, DD/MM/AAAA")
+    plazo_alegacion_fin: str | None = Field(None, description="Último día del plazo de 20 días naturales, DD/MM/AAAA")
+    dias_restantes: int | None = Field(
+        None, description="Días naturales restantes hasta plazo_alegacion_fin (negativo si ya venció)"
+    )
 
 
 class CheckResponse(BaseModel):

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from datetime import date
 from urllib.parse import urljoin
 
 import httpx
@@ -32,6 +33,7 @@ USER_AGENT = "VigilaBot/0.1 (+monitorizacion de notificaciones de trafico)"
 class BoeCandidate:
     boe_ref: str
     pdf_url: str
+    published_on: date | None = None
 
 
 class BoeClientError(RuntimeError):
@@ -91,6 +93,22 @@ def search(value: str, *, materia: str | None = MATERIA_TRAFICO, timeout: float 
     return _parse_results(resp.text)
 
 
+def _extract_date(pdf_href: str) -> date | None:
+    """Pull the publication date out of the PDF path itself
+    (.../dias/YYYY/MM/DD/not.php?...) — this is the edict's actual
+    publication date, which is what the 20-day plazo counts from. The PDF's
+    own text has no reliable machine-readable date (the footer text comes
+    out reversed/garbled from pdfplumber's extraction)."""
+    match = re.search(r"/dias/(\d{4})/(\d{2})/(\d{2})/", pdf_href)
+    if not match:
+        return None
+    year, month, day = (int(g) for g in match.groups())
+    try:
+        return date(year, month, day)
+    except ValueError:
+        return None
+
+
 def _parse_results(html: str) -> list[BoeCandidate]:
     if NOT_FOUND_TEXT in html:
         return []
@@ -108,6 +126,8 @@ def _parse_results(html: str) -> list[BoeCandidate]:
         if boe_ref in seen:
             continue
         seen.add(boe_ref)
-        candidates.append(BoeCandidate(boe_ref=boe_ref, pdf_url=urljoin(BASE_URL, href)))
+        candidates.append(
+            BoeCandidate(boe_ref=boe_ref, pdf_url=urljoin(BASE_URL, href), published_on=_extract_date(href))
+        )
 
     return candidates
