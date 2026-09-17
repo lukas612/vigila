@@ -1,0 +1,130 @@
+"""SQLAlchemy models mirroring the data model from VIGILA_BRIEF.md section 4.
+
+Designed to run against Postgres (Supabase) in production; SQLite works
+fine for local dev (see db.py). Uses SQLAlchemy 2.0 typed mapped columns.
+"""
+from __future__ import annotations
+
+import enum
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+def _uuid() -> str:
+    return str(uuid.uuid4())
+
+
+class SubscriptionStatus(str, enum.Enum):
+    none = "none"
+    trialing = "trialing"
+    active = "active"
+    past_due = "past_due"
+    canceled = "canceled"
+
+
+class Plan(str, enum.Enum):
+    individual = "individual"
+    familiar = "familiar"
+
+
+class CheckResultEnum(str, enum.Enum):
+    found = "found"
+    not_found = "not_found"
+    error = "error"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    subscription_status: Mapped[SubscriptionStatus] = mapped_column(
+        Enum(SubscriptionStatus), default=SubscriptionStatus.none
+    )
+    plan: Mapped[Plan | None] = mapped_column(Enum(Plan), nullable=True)
+
+    monitored_ids: Mapped[list["MonitoredId"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class MonitoredId(Base):
+    __tablename__ = "monitored_ids"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
+    value: Mapped[str] = mapped_column(String(20), nullable=False)  # DNI/NIE/matricula, normalized
+    label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    user: Mapped["User"] = relationship(back_populates="monitored_ids")
+    notifications: Mapped[list["Notification"]] = relationship(back_populates="monitored_id_ref")
+
+
+class CheckFree(Base):
+    """Anonymous free-check log for rate limiting/analytics.
+
+    Per the brief's privacy section: never store the raw DNI/matricula here,
+    only a hash, unless the user goes on to subscribe.
+    """
+
+    __tablename__ = "checks_free"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    ip_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    fingerprint_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    value_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    result: Mapped[CheckResultEnum] = mapped_column(Enum(CheckResultEnum), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    monitored_id: Mapped[str] = mapped_column(String(36), ForeignKey("monitored_ids.id"), nullable=False, index=True)
+    boe_ref: Mapped[str] = mapped_column(String(40), nullable=False)
+    expediente: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    importe: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    fecha: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    precepto: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    articulo: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    plazo_alegacion_fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    seen_by_user: Mapped[bool] = mapped_column(Boolean, default=False)
+    notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    monitored_id_ref: Mapped["MonitoredId"] = relationship(back_populates="notifications")
+
+
+class WaitlistSignup(Base):
+    """Email captured from the landing page's post-result CTA, before a real
+    account/subscription exists."""
+
+    __tablename__ = "waitlist_signups"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
+    context: Mapped[str] = mapped_column(String(20), nullable=False)  # "ok" | "alert"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class NotificationRun(Base):
+    """Log of each cron cycle per monitored_id, for debugging."""
+
+    __tablename__ = "notification_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    monitored_id: Mapped[str] = mapped_column(String(36), ForeignKey("monitored_ids.id"), nullable=False, index=True)
+    ran_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+    result: Mapped[CheckResultEnum] = mapped_column(Enum(CheckResultEnum), nullable=False)
+    raw_response_snippet: Mapped[str | None] = mapped_column(Text, nullable=True)

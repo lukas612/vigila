@@ -1,0 +1,30 @@
+from __future__ import annotations
+
+from pydantic import BaseModel, Field
+
+
+class CheckRequest(BaseModel):
+    value: str = Field(..., min_length=5, max_length=20, description="DNI, NIE o matrícula")
+    consent: bool = Field(..., description="Consentimiento explícito para procesar el dato")
+
+
+class NotificationOut(BaseModel):
+    boe_ref: str
+    expediente: str
+    localidad: str
+    fecha: str
+    matricula: str
+    importe: str
+    precepto: str
+    articulo: str
+    puntos: str
+
+
+class CheckResponse(BaseModel):
+    found: bool
+    notifications: list[NotificationOut] = []
+
+
+class WaitlistRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    context: str = Field("ok", description="'ok' o 'alert' — desde qué resultado se suscribe")
