@@ -183,6 +183,12 @@
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
+  function formatEuros(value){
+    if(value >= 1e6) return (value/1e6).toLocaleString('es-ES', {maximumFractionDigits:1}) + ' M €';
+    if(value >= 1e3) return Math.round(value).toLocaleString('es-ES') + ' €';
+    return Math.round(value).toLocaleString('es-ES') + ' €';
+  }
+
   async function load(){
     try{
       const resp = await fetch(API_BASE + '/api/stats/latest');
@@ -201,7 +207,7 @@
       const media = data.total_importe / data.total_expedientes;
 
       document.getElementById('tileExpedientes').textContent = data.total_expedientes.toLocaleString('es-ES');
-      document.getElementById('tileImporte').textContent = Math.round(data.total_importe).toLocaleString('es-ES') + ' €';
+      document.getElementById('tileImporte').textContent = formatEuros(data.total_importe);
       document.getElementById('tileMedia').textContent = Math.round(media).toLocaleString('es-ES') + ' €';
       document.getElementById('tileLocalidades').textContent = data.localidades.length.toLocaleString('es-ES');
       document.getElementById('cardSub').textContent = `Recuento de expedientes por localidad del denunciado — ${d}/${m}/${y}`;

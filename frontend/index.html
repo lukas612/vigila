@@ -679,10 +679,13 @@
       if(!data.localidades || !data.localidades.length) return;
 
       const [y, m, d] = data.stat_date.split('-');
+      const formatEuros = (value) => value >= 1e6
+        ? (value/1e6).toLocaleString('es-ES', {maximumFractionDigits:1}) + ' M €'
+        : Math.round(value).toLocaleString('es-ES') + ' €';
       document.getElementById('hookHeadline').innerHTML =
         `El <span class="n">${d}/${m}</span> hubo <span class="n">${data.total_expedientes.toLocaleString('es-ES')}</span> sancionados`;
       document.getElementById('hookSub').textContent =
-        `${Math.round(data.total_importe).toLocaleString('es-ES')} € en multas ese día. Muchos aún no han recibido nada por correo.`;
+        `${formatEuros(data.total_importe)} en multas ese día. Muchos aún no han recibido nada por correo.`;
 
       const top = data.localidades.slice(0, 8);
       const max = Math.max(...top.map(l => l.expedientes_count));
