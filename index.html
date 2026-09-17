@@ -372,6 +372,13 @@
 </div>
 
 <script>
+  // This copy is served from GitHub Pages (a static host), so it always
+  // needs the API's own origin — unlike the local dev copy under
+  // frontend/index.html, which is served by the FastAPI app itself and
+  // can safely default to same-origin.
+  window.VIGILA_API_BASE = window.VIGILA_API_BASE || 'https://vigila-api.onrender.com';
+</script>
+<script>
 (function(){
   const API_BASE = window.VIGILA_API_BASE || '';
 

@@ -75,6 +75,30 @@ through PostgREST, so add policies (or explicitly decide these tables
 should only ever be reached through this backend's own DB role) before
 flipping it on.
 
+## Deploying (Render)
+
+The landing page is hosted as a static site on GitHub Pages
+(https://lukas612.github.io/vigila/), which can't run the Python backend —
+`render.yaml` at the repo root defines a Render web service for that:
+
+1. In Render: **New → Blueprint**, pick the `lukas612/vigila` repo. It reads
+   `render.yaml` and creates a `vigila-api` free web service with
+   `rootDir: backend`.
+2. Set the `DATABASE_URL` env var (left blank in the blueprint on purpose,
+   since it contains the DB password — never commit it):
+   `postgresql://postgres:<db-password>@db.wwxlzvfxlfuodikcamlq.supabase.co:5432/postgres`
+3. Deploy. Render assigns `https://vigila-api.onrender.com` (the name in
+   `render.yaml`) unless that subdomain is already taken, in which case
+   update the hardcoded URL in the repo root's `index.html`
+   (`window.VIGILA_API_BASE`) to match.
+4. Free-tier Render services spin down on idle — the first request after a
+   quiet period can take ~30s while it wakes up.
+
+Note the root `index.html` (served by GitHub Pages) and
+`frontend/index.html` (served locally by this app for full-stack dev) are
+two copies — only the root one hardcodes `VIGILA_API_BASE`, since the local
+copy is same-origin with the API and needs no override.
+
 ## Tests
 
 ```bash

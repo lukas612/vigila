@@ -21,7 +21,11 @@ app = FastAPI(title="Vigila API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten to the real frontend origin before going live
+    allow_origins=[
+        "https://lukas612.github.io",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+    ],
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
