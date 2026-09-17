@@ -11,9 +11,16 @@ from sqlalchemy.orm import Session
 
 from . import check_service
 from .db import get_db, init_db
-from .models import CheckFree, CheckResultEnum, WaitlistSignup
+from .models import CheckFree, CheckResultEnum, DailyStat, WaitlistSignup
 from .rate_limit import RateLimiter, hash_identifier
-from .schemas import CheckRequest, CheckResponse, NotificationOut, WaitlistRequest
+from .schemas import (
+    CheckRequest,
+    CheckResponse,
+    DailyStatsResponse,
+    LocalityStat,
+    NotificationOut,
+    WaitlistRequest,
+)
 from .validators import InvalidIdentifier, validate_identifier
 
 logger = logging.getLogger("vigila")
@@ -98,6 +105,32 @@ async def check(payload: CheckRequest, request: Request, db: Session = Depends(g
         for row in result.matches
     ]
     return CheckResponse(found=result.found, notifications=notifications)
+
+
+@app.get("/api/stats/latest", response_model=DailyStatsResponse)
+def stats_latest(db: Session = Depends(get_db)) -> DailyStatsResponse:
+    """Aggregate-only: counts and totals per locality for the most recent day
+    a background crawl has stored (see scripts/crawl_daily_stats.py). Never
+    exposes anything at the level of an individual expediente or DNI."""
+    latest_date = db.query(DailyStat.stat_date).order_by(DailyStat.stat_date.desc()).limit(1).scalar()
+    if latest_date is None:
+        raise HTTPException(status_code=404, detail="Todavía no hay datos agregados disponibles")
+
+    rows = (
+        db.query(DailyStat)
+        .filter(DailyStat.stat_date == latest_date)
+        .order_by(DailyStat.expedientes_count.desc())
+        .all()
+    )
+    return DailyStatsResponse(
+        stat_date=latest_date.isoformat(),
+        total_expedientes=sum(r.expedientes_count for r in rows),
+        total_importe=sum(float(r.importe_total or 0) for r in rows),
+        localidades=[
+            LocalityStat(localidad=r.localidad, expedientes_count=r.expedientes_count, importe_total=r.importe_total)
+            for r in rows
+        ],
+    )
 
 
 @app.post("/api/waitlist")

@@ -33,3 +33,16 @@ class CheckResponse(BaseModel):
 class WaitlistRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=320)
     context: str = Field("ok", description="'ok' o 'alert' — desde qué resultado se suscribe")
+
+
+class LocalityStat(BaseModel):
+    localidad: str
+    expedientes_count: int
+    importe_total: float | None = None
+
+
+class DailyStatsResponse(BaseModel):
+    stat_date: str = Field(..., description="Fecha de los datos, AAAA-MM-DD")
+    total_expedientes: int
+    total_importe: float
+    localidades: list[LocalityStat]

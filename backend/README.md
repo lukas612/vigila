@@ -19,9 +19,17 @@ and powers the free instant check on the landing page. See
 - `app/models.py` — SQLAlchemy models for the schema in the brief (users,
   monitored_ids, checks_free, notifications, notification_runs, plus a
   waitlist_signups table for the landing page's email capture).
-- `app/main.py` — FastAPI app exposing `POST /api/check` and
-  `POST /api/waitlist`, and serving `../frontend` as static files for local
-  end-to-end runs.
+- `app/main.py` — FastAPI app exposing `POST /api/check`, `POST /api/waitlist`
+  and `GET /api/stats/latest`, and serving `../frontend` as static files for
+  local end-to-end runs.
+- `scripts/crawl_daily_stats.py` — a separate pipeline from the per-user
+  check: crawls every traffic bulletin published nationally on a given day
+  (~150-200 PDFs, no DNI/matrícula filter) and stores **aggregate-only**
+  counts and totals per locality in `daily_stats`. Powers the "¿cuántos
+  multaron ayer?" hook section on the landing page. Runs from GitHub Actions
+  (`.github/workflows/daily_stats.yml`), never from the Render app — parsing
+  that many PDFs is far too slow for a web request, especially on a
+  CPU-limited free tier.
 
 ### Why the pipeline never trusts the BOE search alone
 
@@ -122,6 +130,17 @@ Note the root `index.html` (served by GitHub Pages) and
 `frontend/index.html` (served locally by this app for full-stack dev) are
 two copies — only the root one hardcodes `VIGILA_API_BASE`, since the local
 copy is same-origin with the API and needs no override.
+
+### Daily stats crawl (GitHub Actions)
+
+`.github/workflows/daily_stats.yml` needs a `DATABASE_URL` repository
+secret (Settings → Secrets and variables → Actions → New repository
+secret) set to the same Supavisor pooler string as Render's. It runs once
+a day automatically; trigger it manually from the Actions tab (or
+`workflow_dispatch`, optionally with a `date` input) to backfill a specific
+day. The landing page's hook section just hides itself if
+`/api/stats/latest` 404s (no day crawled yet), so the site works fine
+before this has ever run.
 
 ## Tests
 

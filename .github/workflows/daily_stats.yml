@@ -1,0 +1,40 @@
+name: Crawl daily BOE stats
+
+# Downloads and parses every traffic bulletin published nationally on a
+# given day (~150-200 PDFs) and stores aggregate counts per locality — this
+# is far too slow/CPU-heavy to run inside a Render web request (that's the
+# same reason the free tier struggles to parse even a single PDF quickly),
+# so it runs here instead, on a runner with real CPU, and writes straight to
+# Supabase.
+on:
+  schedule:
+    # 08:00 UTC ≈ 10:00 Europe/Madrid — well after the previous day's
+    # bulletins have all been published.
+    - cron: "0 8 * * *"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "YYYY-MM-DD to crawl (defaults to yesterday)"
+        required: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Crawl and store aggregate stats
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "${{ github.event.inputs.date }}" ]; then
+            python -m scripts.crawl_daily_stats --date "${{ github.event.inputs.date }}"
+          else
+            python -m scripts.crawl_daily_stats
+          fi

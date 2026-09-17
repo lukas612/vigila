@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -115,6 +115,23 @@ class WaitlistSignup(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
     context: Mapped[str] = mapped_column(String(20), nullable=False)  # "ok" | "alert"
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class DailyStat(Base):
+    """Aggregate-only stats scraped from the BOE's full daily traffic listing
+    (not the per-user check pipeline). Deliberately never stores anything at
+    the level of an individual expediente/DNI — only counts and totals per
+    locality per day, safe to show publicly on the landing page."""
+
+    __tablename__ = "daily_stats"
+    __table_args__ = (UniqueConstraint("stat_date", "localidad", name="uq_daily_stats_date_localidad"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    stat_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    localidad: Mapped[str] = mapped_column(String(120), nullable=False)
+    expedientes_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    importe_total: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 

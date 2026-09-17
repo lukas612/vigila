@@ -40,9 +40,17 @@ class BoeClientError(RuntimeError):
     """Raised when the BOE endpoint can't be reached or parsed."""
 
 
-def _build_params(value: str, materia: str | None = MATERIA_TRAFICO) -> list[tuple[str, str]]:
+def _build_params(
+    value: str,
+    materia: str | None = MATERIA_TRAFICO,
+    fpu_from: date | None = None,
+    fpu_to: date | None = None,
+    page_hits: int = 50,
+) -> list[tuple[str, str]]:
     # Field/operator pairs mirror the exact shape confirmed against the live
-    # endpoint. campo[4]/FPU (date range) is left empty (no date filtering).
+    # endpoint. campo[4]/FPU is the publication-date range filter — confirmed
+    # live it only accepts ISO (YYYY-MM-DD); DD/MM/YYYY and DD-MM-YYYY both
+    # get rejected with "los valores de búsqueda enviados son incorrectos".
     return [
         ("campo[0]", "DOC"),
         ("dato[0]", value),
@@ -57,9 +65,9 @@ def _build_params(value: str, materia: str | None = MATERIA_TRAFICO) -> list[tup
         ("dato[3]", ""),
         ("operador[4]", "and"),
         ("campo[4]", "FPU"),
-        ("dato[4][0]", ""),
-        ("dato[4][1]", ""),
-        ("page_hits", "50"),
+        ("dato[4][0]", fpu_from.isoformat() if fpu_from else ""),
+        ("dato[4][1]", fpu_to.isoformat() if fpu_to else ""),
+        ("page_hits", str(page_hits)),
         ("sort_field[0]", "FPU"),
         ("sort_order[0]", "desc"),
         ("sort_field[1]", "id"),
@@ -78,6 +86,32 @@ def search(value: str, *, materia: str | None = MATERIA_TRAFICO, timeout: float 
         raise ValueError("value must not be empty")
 
     params = _build_params(value.strip())
+    try:
+        resp = httpx.get(
+            urljoin(BASE_URL, SEARCH_PATH),
+            params=params,
+            headers={"User-Agent": USER_AGENT},
+            timeout=timeout,
+            follow_redirects=True,
+        )
+        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise BoeClientError(f"failed to query BOE: {exc}") from exc
+
+    return _parse_results(resp.text)
+
+
+def search_by_date(
+    day: date, *, materia: str | None = MATERIA_TRAFICO, page_hits: int = 500, timeout: float = 30.0
+) -> list[BoeCandidate]:
+    """List every bulletin published on `day`, nationally — no DOC filter.
+
+    Used for the aggregate daily-stats crawl, not the per-user check (which
+    always goes through `search` with a specific DNI/matrícula). `page_hits`
+    defaults high since a single day's MATERIA=43 listing has been observed
+    at ~200 nationally; raise it further if that grows.
+    """
+    params = _build_params("", materia=materia, fpu_from=day, fpu_to=day, page_hits=page_hits)
     try:
         resp = httpx.get(
             urljoin(BASE_URL, SEARCH_PATH),

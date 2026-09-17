@@ -47,3 +47,18 @@ def test_search_raises_on_http_error():
 
     with pytest.raises(boe_client.BoeClientError):
         boe_client.search("12345678Z")
+
+
+@respx.mock
+def test_search_by_date_sends_iso_date_range_and_no_doc_filter():
+    html = (FIXTURES / "search_results.html").read_text()
+    route = respx.get(url__regex=r".*notificaciones\.php.*").mock(return_value=httpx.Response(200, text=html))
+
+    candidates = boe_client.search_by_date(date(2026, 9, 17), page_hits=200)
+
+    assert len(candidates) == 14
+    sent_url = route.calls.last.request.url
+    assert sent_url.params["dato[0]"] == ""
+    assert sent_url.params["dato[4][0]"] == "2026-09-17"
+    assert sent_url.params["dato[4][1]"] == "2026-09-17"
+    assert sent_url.params["page_hits"] == "200"
