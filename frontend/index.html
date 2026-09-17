@@ -55,8 +55,11 @@
   .wrap{ max-width: 1040px; margin:0 auto; padding: 0 24px; }
   .wrap-narrow{ max-width: 640px; margin:0 auto; padding:0 24px; }
 
+  .site-header-sticky{
+    position: sticky; top: 0; z-index: 50; background: var(--paper);
+  }
   header.masthead{
-    padding: 20px 0;
+    padding: 16px 0;
     display:flex; align-items:center; justify-content:space-between;
   }
   .brand{
@@ -275,20 +278,22 @@
 </head>
 <body>
 
-<div class="wrap">
-  <header class="masthead">
-    <span class="brand">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 3.5v6.2c0 5.6-3.8 9.6-8 11.3-4.2-1.7-8-5.7-8-11.3V5.5L12 2z" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 12l2.4 2.4L16 9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Vigila
-    </span>
-    <nav class="site-nav">
-      <a href="index.html" class="active">Comprobar</a>
-      <a href="index.html#planes">Planes</a>
-      <a href="estadisticas.html">Estadísticas</a>
-    </nav>
-  </header>
+<div class="site-header-sticky">
+  <div class="wrap">
+    <header class="masthead">
+      <span class="brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 3.5v6.2c0 5.6-3.8 9.6-8 11.3-4.2-1.7-8-5.7-8-11.3V5.5L12 2z" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 12l2.4 2.4L16 9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Vigila
+      </span>
+      <nav class="site-nav">
+        <a href="index.html" class="active">Comprobar</a>
+        <a href="index.html#planes">Planes</a>
+        <a href="estadisticas.html">Estadísticas</a>
+      </nav>
+    </header>
+  </div>
+  <div class="disclaimer-strip">Servicio independiente. No es un organismo público ni está afiliado a la Administración General del Estado.</div>
 </div>
-<div class="disclaimer-strip">Servicio independiente. No es un organismo público ni está afiliado a la Administración General del Estado.</div>
 
 <section class="hero">
   <div class="wrap hero-inner">
