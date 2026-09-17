@@ -8,9 +8,16 @@ a plazo that's actually running out.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 
 from . import boe_client, pdf_parser
+
+# Candidates are downloaded+parsed concurrently (each is a slow, independent
+# network fetch) rather than one at a time — a value matching a dozen
+# provincial bulletins was taking 50+ seconds serially, against a "check in
+# 10 seconds" product promise.
+MAX_CONCURRENT_CANDIDATES = 6
 
 
 @dataclass(frozen=True)
@@ -19,6 +26,11 @@ class CheckResult:
     matches: list[pdf_parser.NotificationRow] = field(default_factory=list)
     candidates_checked: int = 0
     errors: list[str] = field(default_factory=list)
+
+
+def _check_candidate(candidate: boe_client.BoeCandidate, normalized: str) -> list[pdf_parser.NotificationRow]:
+    pdf_bytes = pdf_parser.fetch_pdf_bytes(candidate.pdf_url)
+    return pdf_parser.find_matches(pdf_bytes, candidate.boe_ref, normalized)
 
 
 def run_check(value: str) -> CheckResult:
@@ -36,13 +48,17 @@ def run_check(value: str) -> CheckResult:
         return CheckResult(found=False, errors=[str(exc)])
 
     matches: list[pdf_parser.NotificationRow] = []
-    for candidate in candidates:
-        try:
-            pdf_bytes = pdf_parser.fetch_pdf_bytes(candidate.pdf_url)
-        except pdf_parser.PdfFetchError as exc:
-            errors.append(f"{candidate.boe_ref}: {exc}")
-            continue
-        matches.extend(pdf_parser.find_matches(pdf_bytes, candidate.boe_ref, normalized))
+    if candidates:
+        with ThreadPoolExecutor(max_workers=min(MAX_CONCURRENT_CANDIDATES, len(candidates))) as pool:
+            future_to_candidate = {
+                pool.submit(_check_candidate, candidate, normalized): candidate for candidate in candidates
+            }
+            for future in as_completed(future_to_candidate):
+                candidate = future_to_candidate[future]
+                try:
+                    matches.extend(future.result())
+                except pdf_parser.PdfFetchError as exc:
+                    errors.append(f"{candidate.boe_ref}: {exc}")
 
     return CheckResult(
         found=bool(matches),
