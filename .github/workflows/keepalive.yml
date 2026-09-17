@@ -1,0 +1,18 @@
+name: Keep Vigila API awake
+
+# Render's free tier spins the web service down after ~15 minutes without
+# traffic, and the next request pays a 30-60s+ cold start (occasionally a
+# 502 if it arrives mid-restart). Pinging well under that window keeps it
+# warm. This is a workaround for the free tier, not a substitute for a
+# paid always-on plan if this ever needs to be reliable for real users.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the API
+        run: curl -sS -o /dev/null -w "HTTP %{http_code}\n" --max-time 60 https://vigila-api.onrender.com/

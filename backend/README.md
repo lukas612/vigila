@@ -100,14 +100,23 @@ The landing page is hosted as a static site on GitHub Pages
    `render.yaml` and creates a `vigila-api` free web service with
    `rootDir: backend`.
 2. Set the `DATABASE_URL` env var (left blank in the blueprint on purpose,
-   since it contains the DB password — never commit it):
-   `postgresql://postgres:<db-password>@db.wwxlzvfxlfuodikcamlq.supabase.co:5432/postgres`
+   since it contains the DB password — never commit it) to the **Supavisor
+   pooler** string, not the direct connection (see "Use the Supavisor
+   pooler" above — Render has no IPv6 egress):
+   `postgresql://postgres.wwxlzvfxlfuodikcamlq:<db-password>@aws-1-eu-west-1.pooler.supabase.com:5432/postgres`
 3. Deploy. Render assigns `https://vigila-api.onrender.com` (the name in
    `render.yaml`) unless that subdomain is already taken, in which case
    update the hardcoded URL in the repo root's `index.html`
    (`window.VIGILA_API_BASE`) to match.
-4. Free-tier Render services spin down on idle — the first request after a
-   quiet period can take ~30s while it wakes up.
+4. **Free-tier Render services spin down after ~15 minutes without
+   traffic**, and the next request pays a 30-60s+ cold start — sometimes
+   even a `502` if it lands mid-restart. `.github/workflows/keepalive.yml`
+   pings `GET /` every 10 minutes (via GitHub Actions, so it runs whether
+   or not anyone has this repo open) to keep it warm. This is a
+   workaround, not a fix: it doesn't help the very first request after the
+   workflow itself has been idle, and it eats into the free plan's
+   monthly hours. For anything beyond testing, move to a paid plan
+   (Starter, no spin-down) instead.
 
 Note the root `index.html` (served by GitHub Pages) and
 `frontend/index.html` (served locally by this app for full-stack dev) are
