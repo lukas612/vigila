@@ -18,11 +18,14 @@ the user clicks it — this module never sees a password. It only:
 """
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass
 
 import httpx
 from fastapi import Depends, HTTPException, Request, Response
+
+logger = logging.getLogger("vigila")
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
@@ -76,6 +79,7 @@ def fetch_user(access_token: str) -> AuthUser:
     except httpx.HTTPError as exc:
         raise InvalidSession(str(exc)) from exc
     if resp.status_code != 200:
+        logger.warning("supabase /user rejected access token: %s %s", resp.status_code, resp.text[:500])
         raise InvalidSession(f"supabase rejected the access token ({resp.status_code})")
     data = resp.json()
     return AuthUser(id=data["id"], email=data.get("email") or "")
@@ -90,6 +94,7 @@ def _refresh(refresh_token: str) -> dict:
         timeout=10.0,
     )
     if resp.status_code != 200:
+        logger.warning("supabase /token refresh rejected: %s %s", resp.status_code, resp.text[:500])
         raise InvalidSession(f"refresh rejected ({resp.status_code})")
     return resp.json()
 
