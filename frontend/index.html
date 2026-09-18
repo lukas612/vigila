@@ -551,8 +551,57 @@
       document.getElementById('anonCheckCard').hidden = true;
       document.getElementById('loggedInEmail').textContent = me.email;
       document.getElementById('loggedInCard').hidden = false;
+      wireLoggedInPricing(me);
     })
     .catch(() => {});
+
+  // Same reasoning as the hero card above: a logged-in visitor already has
+  // an email on file, so the pricing cards shouldn't ask for one again —
+  // swap the email-capture "Quiero este plan" for a real action. Someone
+  // with no active plan goes straight to Stripe checkout for the one they
+  // picked; someone who already has a DIFFERENT active plan goes to the
+  // billing portal instead (its subscription_update switches plans on the
+  // existing subscription — a second checkout would create a second,
+  // duplicate one rather than upgrading/downgrading it).
+  function wireLoggedInPricing(me){
+    const hasActivePlan = me.max_targets > 0;
+    document.querySelectorAll('.plan-cta').forEach(function(cta){
+      const emailInput = cta.querySelector('.plan-email');
+      const btn = cta.querySelector('.plan-btn');
+      const plan = btn.dataset.plan;
+      emailInput.hidden = true;
+      btn.replaceWith(btn.cloneNode(true)); // drop the anonymous (waitlist) click handler bound below
+      const freshBtn = cta.querySelector('.plan-btn');
+
+      if(hasActivePlan && me.plan === plan){
+        freshBtn.textContent = 'Tu plan actual';
+        freshBtn.disabled = true;
+        return;
+      }
+
+      freshBtn.textContent = hasActivePlan ? 'Cambiar a este plan' : 'Suscribirme';
+      freshBtn.addEventListener('click', async function(){
+        freshBtn.disabled = true;
+        const path = hasActivePlan ? '/api/billing/portal' : '/api/billing/checkout';
+        const body = hasActivePlan ? undefined : JSON.stringify({ plan });
+        try{
+          const resp = await fetch(API_BASE + path, {
+            method: 'POST', credentials: 'include',
+            headers: {'Content-Type': 'application/json'},
+            body,
+          });
+          const data = await resp.json().catch(() => ({}));
+          if(!resp.ok || !data.url){
+            freshBtn.textContent = 'No se pudo continuar, inténtalo de nuevo';
+            return;
+          }
+          window.location.href = data.url;
+        } finally {
+          freshBtn.disabled = false;
+        }
+      });
+    });
+  }
 
   const input = document.getElementById('doc');
   const consent = document.getElementById('consent');
