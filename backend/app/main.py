@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from . import auth, check_service, crypto, stats
+from . import auth, check_service, crypto, monitoring, stats
 from .db import get_db, init_db
 from .models import CheckFree, CheckResultEnum, DailyStat, MonitoredId, Notification, StatsSummary, User, WaitlistSignup
 from .rate_limit import RateLimiter, hash_identifier
@@ -282,7 +282,7 @@ def list_targets(
 
 
 @app.post("/api/targets", response_model=TargetOut, status_code=201)
-def create_target(
+async def create_target(
     payload: CreateTargetRequest,
     user: auth.AuthUser = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
@@ -304,6 +304,17 @@ def create_target(
     db.add(target)
     db.commit()
     db.refresh(target)
+
+    # Check it right away instead of leaving it for the next twice-daily
+    # cron run — the whole point of adding a target is finding out now, not
+    # in up to 12 hours. A failure here (BOE unreachable, etc.) shouldn't
+    # stop the target from having been created; it'll just get picked up
+    # by the next cron pass like normal.
+    try:
+        await asyncio.to_thread(monitoring.check_target, db, target)
+    except Exception:  # noqa: BLE001 - target creation must still succeed
+        logger.exception("initial check failed for new target %s", target.id)
+
     return _target_out(target, db)
 
 

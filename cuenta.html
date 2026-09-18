@@ -417,6 +417,11 @@
     }
     const btn = document.getElementById('addTargetBtn');
     btn.disabled = true;
+    // The POST doesn't return until the new target's been checked against
+    // the BOE for the first time (see main.py's create_target) — that's a
+    // real scrape, not instant, so say so instead of leaving the button
+    // looking stuck.
+    btn.textContent = 'Comprobando…';
     try{
       const resp = await fetch(API_BASE + '/api/targets', {
         method: 'POST',
@@ -439,6 +444,7 @@
       loadTargets();
     } finally {
       btn.disabled = false;
+      btn.textContent = 'Vigilar';
     }
   });
 
