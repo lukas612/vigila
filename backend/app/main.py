@@ -28,6 +28,8 @@ from .rate_limit import RateLimiter, hash_identifier
 from .schemas import (
     AdminBillingDayCount,
     AdminBillingResponse,
+    AdminCheckOut,
+    AdminChecksPage,
     AdminChecksResponse,
     AdminDayCount,
     AdminUserOut,
@@ -510,6 +512,48 @@ def admin_checks(
             AdminDayCount(day=day, total=v["total"], found=v["found"])
             for day, v in sorted(by_day.items(), reverse=True)
         ],
+    )
+
+
+CHECKS_PAGE_SIZE = 20
+
+
+@app.get("/api/admin/checks/list", response_model=AdminChecksPage)
+def admin_checks_list(
+    page: int = Query(1, ge=1),
+    _admin: auth.AuthUser = Depends(auth.require_admin),
+    db: Session = Depends(get_db),
+) -> AdminChecksPage:
+    """Paginated raw log of the anonymous free-check funnel, newest first.
+    Same privacy constraint as /api/admin/checks: checks_free never stores
+    the DNI/matrícula itself, only a SHA-256 hash — value_ref/ip_ref are
+    just short hash prefixes, useful to notice the same identifier or IP
+    showing up repeatedly (abuse, or someone re-checking), never to
+    identify who searched what."""
+    total = db.query(CheckFree).count()
+    pages = max(1, (total + CHECKS_PAGE_SIZE - 1) // CHECKS_PAGE_SIZE)
+    rows = (
+        db.query(CheckFree)
+        .order_by(CheckFree.created_at.desc())
+        .offset((page - 1) * CHECKS_PAGE_SIZE)
+        .limit(CHECKS_PAGE_SIZE)
+        .all()
+    )
+    return AdminChecksPage(
+        items=[
+            AdminCheckOut(
+                id=r.id,
+                created_at=r.created_at.isoformat(),
+                result=r.result.value,
+                value_ref=r.value_hash[:10],
+                ip_ref=r.ip_hash[:8],
+            )
+            for r in rows
+        ],
+        total=total,
+        page=page,
+        page_size=CHECKS_PAGE_SIZE,
+        pages=pages,
     )
 
 

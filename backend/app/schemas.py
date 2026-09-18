@@ -164,3 +164,21 @@ class AdminBillingResponse(BaseModel):
     signups_by_day: list[AdminBillingDayCount] = Field(
         ..., description="Altas de pago de los últimos 14 días (por subscribed_at)"
     )
+
+
+class AdminCheckOut(BaseModel):
+    id: str
+    created_at: str
+    result: str
+    value_ref: str = Field(
+        ..., description="Primeros caracteres del hash del valor consultado — nunca el DNI/matrícula real"
+    )
+    ip_ref: str = Field(..., description="Primeros caracteres del hash de IP, para detectar abuso desde un mismo origen")
+
+
+class AdminChecksPage(BaseModel):
+    items: list[AdminCheckOut]
+    total: int
+    page: int
+    page_size: int
+    pages: int

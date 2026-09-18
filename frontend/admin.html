@@ -67,6 +67,18 @@
   .badge.none{ background: var(--surface); color: var(--ink-faint); }
   .badge.active{ background: var(--ok-soft); color: var(--ok); }
   .badge.other{ background: var(--alert-soft); color: var(--alert); }
+  .badge.found{ background: var(--alert-soft); color: var(--alert); }
+  .badge.not_found{ background: var(--ok-soft); color: var(--ok); }
+  .badge.error{ background: var(--surface); color: var(--ink-faint); }
+
+  .pager{ display:flex; align-items:center; justify-content:center; gap:14px; margin-top:14px; }
+  .pager-info{ font-size:12.5px; color: var(--ink-faint); }
+  .btn-page{
+    font-family: var(--font-ui); font-size:13px; font-weight:600; padding:7px 14px;
+    border:1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface);
+    color: var(--ink); cursor:pointer;
+  }
+  .btn-page:disabled{ opacity:0.4; cursor:default; }
 
   .state{ text-align:center; padding:80px 20px; color: var(--ink-soft); }
   .state h2{ font-family: var(--font-head); color: var(--ink); font-size:20px; margin:0 0 8px; }
@@ -135,6 +147,20 @@
         <tbody id="usersBody"></tbody>
       </table>
     </div>
+
+    <div class="card">
+      <h2>Historial de búsquedas</h2>
+      <p class="sub" style="margin-bottom:16px;">Comprobaciones gratuitas registradas, más recientes primero. El DNI/matrícula nunca se guarda — solo un hash irreversible (ref.), útil para detectar repeticiones o abuso desde un mismo origen.</p>
+      <table>
+        <thead><tr><th>Fecha</th><th>Resultado</th><th>Ref. búsqueda</th><th>Ref. IP</th></tr></thead>
+        <tbody id="checksListBody"></tbody>
+      </table>
+      <div class="pager">
+        <button id="checksPrevBtn" class="btn-page">← Anterior</button>
+        <span id="checksPageInfo" class="pager-info">—</span>
+        <button id="checksNextBtn" class="btn-page">Siguiente →</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -149,6 +175,16 @@
   function formatDate(iso){
     const d = new Date(iso);
     return isNaN(d) ? iso : d.toLocaleDateString('es-ES');
+  }
+
+  function formatDateTime(iso){
+    const d = new Date(iso);
+    return isNaN(d) ? iso : d.toLocaleString('es-ES');
+  }
+
+  function resultBadge(result){
+    const label = result === 'found' ? 'Encontrada' : result === 'not_found' ? 'Sin multa' : 'Error';
+    return `<span class="badge ${result}">${label}</span>`;
   }
 
   function statusBadge(status){
@@ -190,6 +226,41 @@
       : '<tr><td colspan="3" style="color:var(--ink-faint);">Sin datos todavía.</td></tr>';
   }
 
+  let checksPage = 1;
+  let checksTotalPages = 1;
+
+  async function loadChecksList(page){
+    const resp = await fetch(API_BASE + '/api/admin/checks/list?page=' + page, { credentials: 'include' });
+    if(!resp.ok) throw new Error('checks list fetch failed');
+    const data = await resp.json();
+    checksPage = data.page;
+    checksTotalPages = data.pages;
+
+    const tbody = document.getElementById('checksListBody');
+    tbody.innerHTML = data.items.length
+      ? data.items.map(c => `
+          <tr>
+            <td>${formatDateTime(c.created_at)}</td>
+            <td>${resultBadge(c.result)}</td>
+            <td class="mono">${escapeHtml(c.value_ref)}</td>
+            <td class="mono">${escapeHtml(c.ip_ref)}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="4" style="color:var(--ink-faint);">Sin búsquedas todavía.</td></tr>';
+
+    document.getElementById('checksPageInfo').textContent =
+      `Página ${checksPage} de ${checksTotalPages} · ${data.total.toLocaleString('es-ES')} en total`;
+    document.getElementById('checksPrevBtn').disabled = checksPage <= 1;
+    document.getElementById('checksNextBtn').disabled = checksPage >= checksTotalPages;
+  }
+
+  document.getElementById('checksPrevBtn').addEventListener('click', () => {
+    if(checksPage > 1) loadChecksList(checksPage - 1);
+  });
+  document.getElementById('checksNextBtn').addEventListener('click', () => {
+    if(checksPage < checksTotalPages) loadChecksList(checksPage + 1);
+  });
+
   function renderUsers(users){
     const tbody = document.getElementById('usersBody');
     tbody.innerHTML = users.length
@@ -224,6 +295,7 @@
       renderUsers(await usersResp.json());
       await loadBilling();
       await loadChecks();
+      await loadChecksList(1);
       document.getElementById('loadingState').hidden = true;
       document.getElementById('content').hidden = false;
     }catch(e){
