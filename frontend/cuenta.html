@@ -5,6 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27%3E%3Ccircle cx=%279.8%27 cy=%279.8%27 r=%275.6%27 stroke=%27%231B4D8C%27 stroke-width=%271.9%27/%3E%3Cline x1=%2713.9%27 y1=%2713.9%27 x2=%2719.5%27 y2=%2719.5%27 stroke=%27%231B4D8C%27 stroke-width=%272.2%27 stroke-linecap=%27round%27/%3E%3Cpath d=%27M6.8 9.8L9 12L13.1 7.1%27 stroke=%27%23F5A623%27 stroke-width=%271.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
 <title>Mi cuenta — VigilaMultas</title>
+<!-- Google tag (gtag.js) — Consent Mode v2 defaults to denied until the
+     cookie banner's "Aceptar" updates it (see the banner script near
+     </body>), so nothing actually fires for an EU visitor who hasn't
+     consented yet. -->
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('consent', 'default', {
+    'ad_storage': 'denied',
+    'ad_user_data': 'denied',
+    'ad_personalization': 'denied',
+    'analytics_storage': 'denied',
+    'wait_for_update': 500
+  });
+  gtag('js', new Date());
+  gtag('config', 'AW-18459993752');
+</script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18459993752"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -202,9 +220,49 @@
     .site-nav.open{ display:flex; }
     .site-nav a{ width:100%; padding:10px 0; }
   }
+
+  .cookie-banner{
+    position:fixed; left:16px; right:16px; bottom:16px; z-index:100; max-width:560px; margin:0 auto;
+    background: var(--paper); border:1px solid var(--line); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm); padding:16px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .cookie-banner p{ margin:0; font-size:13px; color: var(--ink-soft); flex:1; min-width:200px; }
+  .cookie-actions{ display:flex; gap:8px; flex-shrink:0; }
+  .cookie-actions button{ padding:9px 16px; font-size:13px; }
+  .cookie-actions .btn-plain{ background: var(--surface); color: var(--ink-soft); }
+  .cookie-banner[hidden]{ display:none; }
 </style>
 </head>
 <body>
+
+<div class="cookie-banner" id="cookieBanner" hidden>
+  <p>Usamos cookies para medir visitas y anuncios (Google Ads). Puedes aceptarlas o seguir navegando sin ellas.</p>
+  <div class="cookie-actions">
+    <button class="btn-plain" id="cookieReject">Rechazar</button>
+    <button class="btn-accent" id="cookieAccept">Aceptar</button>
+  </div>
+</div>
+<script>
+(function(){
+  var KEY = 'vigilamultas_consent';
+  var GRANTED = {ad_storage:'granted', ad_user_data:'granted', ad_personalization:'granted', analytics_storage:'granted'};
+  var saved = localStorage.getItem(KEY);
+  if(saved === 'granted'){
+    gtag('consent', 'update', GRANTED);
+  } else if(!saved){
+    document.getElementById('cookieBanner').hidden = false;
+  }
+  document.getElementById('cookieAccept').addEventListener('click', function(){
+    localStorage.setItem(KEY, 'granted');
+    gtag('consent', 'update', GRANTED);
+    document.getElementById('cookieBanner').hidden = true;
+  });
+  document.getElementById('cookieReject').addEventListener('click', function(){
+    localStorage.setItem(KEY, 'denied');
+    document.getElementById('cookieBanner').hidden = true;
+  });
+})();
+</script>
 
 <div class="site-header-sticky">
   <div class="wrap">
@@ -411,7 +469,7 @@
   }
 
   async function exchangeSession(session){
-    await fetch(API_BASE + '/api/auth/session', {
+    const resp = await fetch(API_BASE + '/api/auth/session', {
       method: 'POST',
       credentials: 'include',
       headers: {'Content-Type': 'application/json'},
@@ -424,6 +482,18 @@
     // Drop the #access_token=... fragment Supabase appended so a refresh
     // or a shared link doesn't carry it around.
     history.replaceState(null, '', window.location.pathname);
+
+    // is_new_user is only ever true on the exact call that created the
+    // profile row — a real first-time signup, not a returning login — so
+    // the "Registro" ad conversion can't get double-counted on every visit.
+    const data = await resp.json().catch(() => null);
+    if(data && data.is_new_user && typeof gtag === 'function'){
+      gtag('event', 'conversion', {
+        'send_to': 'AW-18459993752/FM5ECL70nvwcEJjNtOJE',
+        'value': 1.0,
+        'currency': 'EUR'
+      });
+    }
   }
 
   async function fetchMe(){
@@ -654,7 +724,22 @@
     for(let i = 0; i < 6; i++){
       await new Promise(r => setTimeout(r, 1500));
       const me = await fetchMe();
-      if(me && me.plan){ renderPlan(me); loadTargets(); return; }
+      if(me && me.plan){
+        renderPlan(me);
+        loadTargets();
+        // The ?billing=success param that got us into this poll only ever
+        // shows up right after a real Stripe checkout completes, and
+        // init() strips it immediately — so this can't re-fire on a
+        // refresh or a later, unrelated visit to this page.
+        if(typeof gtag === 'function'){
+          gtag('event', 'conversion', {
+            'send_to': 'AW-18459993752/zf70CLv0nvwcEJjNtOJE',
+            'value': me.plan === 'familiar' ? 6.99 : 3.99,
+            'currency': 'EUR'
+          });
+        }
+        return;
+      }
     }
   }
 

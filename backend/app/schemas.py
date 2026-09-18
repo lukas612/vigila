@@ -75,6 +75,7 @@ class MeResponse(BaseModel):
     plan: str | None = None
     subscription_status: str = "none"
     max_targets: int = 0
+    is_new_user: bool = Field(False, description="True only on the exact call that created the profile row")
 
 
 class CheckoutRequest(BaseModel):

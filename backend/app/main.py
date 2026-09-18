@@ -220,13 +220,18 @@ def stats_weekly(
     return WeeklyStatsResponse(**payload)
 
 
-def _ensure_profile(db: Session, user: auth.AuthUser) -> None:
+def _ensure_profile(db: Session, user: auth.AuthUser) -> bool:
     """Create the billing-fields profile row on first login. Identity
     itself already exists in Supabase's auth.users — this just gives it
-    somewhere to hang plan/subscription_status/stripe_customer_id."""
+    somewhere to hang plan/subscription_status/stripe_customer_id.
+    Returns True the one time this actually created the row (i.e. a real
+    first-time signup) — create_session uses that to fire the "Registro"
+    ad conversion only once per person, not on every later login."""
     if not db.query(User).filter(User.id == user.id).first():
         db.add(User(id=user.id, email=user.email))
         db.commit()
+        return True
+    return False
 
 
 @app.post("/api/auth/session", response_model=MeResponse)
@@ -241,13 +246,14 @@ def create_session(payload: SessionRequest, response: Response, db: Session = De
         raise HTTPException(status_code=401, detail="Token inválido") from None
 
     auth.set_session_cookies(response, payload.access_token, payload.refresh_token, payload.expires_in)
-    _ensure_profile(db, user)
+    is_new_user = _ensure_profile(db, user)
     profile = db.query(User).filter(User.id == user.id).first()
     return MeResponse(
         email=user.email,
         plan=profile.plan.value if profile.plan else None,
         subscription_status=profile.subscription_status.value,
         max_targets=_max_targets(profile),
+        is_new_user=is_new_user,
     )
 
 
