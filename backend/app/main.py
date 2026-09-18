@@ -10,14 +10,27 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from . import auth, check_service, crypto, monitoring, stats
+from . import auth, billing, check_service, crypto, monitoring, stats
 from .db import get_db, init_db
-from .models import CheckFree, CheckResultEnum, DailyStat, MonitoredId, Notification, StatsSummary, User, WaitlistSignup
+from .models import (
+    CheckFree,
+    CheckResultEnum,
+    DailyStat,
+    MonitoredId,
+    Notification,
+    Plan,
+    StatsSummary,
+    SubscriptionStatus,
+    User,
+    WaitlistSignup,
+)
 from .rate_limit import RateLimiter, hash_identifier
 from .schemas import (
     AdminChecksResponse,
     AdminDayCount,
     AdminUserOut,
+    CheckoutRequest,
+    CheckoutResponse,
     CheckRequest,
     CheckResponse,
     CreateTargetRequest,
@@ -25,6 +38,7 @@ from .schemas import (
     MeResponse,
     NotificationHitOut,
     NotificationOut,
+    PortalResponse,
     SessionRequest,
     TargetOut,
     WaitlistRequest,
@@ -54,10 +68,16 @@ app.add_middleware(
 
 free_check_limiter = RateLimiter(max_requests=5, window_seconds=3600)
 
-# Anti-abuse cap until plan-based billing actually gates this (Individual vs
-# Familiar should have different limits, but there's no billing enforcement
-# yet — see stripe_customer_id/plan on User, unused so far).
-MAX_TARGETS_PER_USER = 5
+
+def _max_targets(profile: User | None) -> int:
+    """0 with no profile, no plan, or a subscription that isn't
+    active/trialing (past_due/canceled/none all mean "can't add more") —
+    otherwise the plan's own limit, see billing.PLAN_TARGET_LIMITS."""
+    if profile is None or profile.plan is None:
+        return 0
+    if profile.subscription_status not in (SubscriptionStatus.active, SubscriptionStatus.trialing):
+        return 0
+    return billing.PLAN_TARGET_LIMITS.get(profile.plan, 0)
 
 
 @app.on_event("startup")
@@ -222,7 +242,13 @@ def create_session(payload: SessionRequest, response: Response, db: Session = De
 
     auth.set_session_cookies(response, payload.access_token, payload.refresh_token, payload.expires_in)
     _ensure_profile(db, user)
-    return MeResponse(email=user.email)
+    profile = db.query(User).filter(User.id == user.id).first()
+    return MeResponse(
+        email=user.email,
+        plan=profile.plan.value if profile.plan else None,
+        subscription_status=profile.subscription_status.value,
+        max_targets=_max_targets(profile),
+    )
 
 
 @app.post("/api/auth/logout")
@@ -232,8 +258,14 @@ def logout(response: Response) -> dict[str, bool]:
 
 
 @app.get("/api/auth/me", response_model=MeResponse)
-def me(user: auth.AuthUser = Depends(auth.get_current_user)) -> MeResponse:
-    return MeResponse(email=user.email)
+def me(user: auth.AuthUser = Depends(auth.get_current_user), db: Session = Depends(get_db)) -> MeResponse:
+    profile = db.query(User).filter(User.id == user.id).first()
+    return MeResponse(
+        email=user.email,
+        plan=profile.plan.value if profile and profile.plan else None,
+        subscription_status=profile.subscription_status.value if profile else SubscriptionStatus.none.value,
+        max_targets=_max_targets(profile),
+    )
 
 
 def _mask(value: str) -> str:
@@ -299,10 +331,17 @@ async def create_target(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     _ensure_profile(db, user)
+    profile = db.query(User).filter(User.id == user.id).first()
 
     count = db.query(MonitoredId).filter(MonitoredId.user_id == user.id).count()
-    if count >= MAX_TARGETS_PER_USER:
-        raise HTTPException(status_code=400, detail="Has alcanzado el límite de vigilancias de tu cuenta")
+    limit = _max_targets(profile)
+    if count >= limit:
+        detail = (
+            "Necesitas una suscripción activa para añadir vigilancias — hazte con un plan desde tu cuenta"
+            if limit == 0
+            else "Has alcanzado el límite de vigilancias de tu plan"
+        )
+        raise HTTPException(status_code=400, detail=detail)
 
     target = MonitoredId(user_id=user.id, value_encrypted=crypto.encrypt_value(value), label=payload.label)
     db.add(target)
@@ -332,6 +371,61 @@ def delete_target(
     db.delete(target)
     db.commit()
     return Response(status_code=204)
+
+
+@app.post("/api/billing/checkout", response_model=CheckoutResponse)
+def billing_checkout(
+    payload: CheckoutRequest,
+    user: auth.AuthUser = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+) -> CheckoutResponse:
+    try:
+        plan = Plan(payload.plan)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Plan desconocido") from None
+
+    _ensure_profile(db, user)
+    profile = db.query(User).filter(User.id == user.id).first()
+    try:
+        url = billing.create_checkout_session(
+            profile,
+            plan,
+            success_url="https://vigilamultas.com/cuenta.html?billing=success",
+            cancel_url="https://vigilamultas.com/cuenta.html?billing=cancel",
+        )
+    except billing.StripeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return CheckoutResponse(url=url)
+
+
+@app.post("/api/billing/portal", response_model=PortalResponse)
+def billing_portal(
+    user: auth.AuthUser = Depends(auth.get_current_user), db: Session = Depends(get_db)
+) -> PortalResponse:
+    profile = db.query(User).filter(User.id == user.id).first()
+    if not profile or not profile.stripe_customer_id:
+        raise HTTPException(status_code=400, detail="Todavía no tienes ninguna suscripción")
+    try:
+        url = billing.create_portal_session(profile.stripe_customer_id, "https://vigilamultas.com/cuenta.html")
+    except billing.StripeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return PortalResponse(url=url)
+
+
+@app.post("/api/billing/webhook")
+async def billing_webhook(request: Request, db: Session = Depends(get_db)) -> dict[str, bool]:
+    """Stripe calls this directly (no browser involved, so no CORS/cookie
+    concerns) whenever a subscribed event happens. The raw body has to be
+    read before any parsing — the signature is computed over the exact
+    bytes Stripe sent, not a re-serialized version of them."""
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    try:
+        event = billing.verify_webhook_signature(payload, sig_header)
+    except billing.StripeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    billing.apply_event(db, event)
+    return {"received": True}
 
 
 @app.get("/api/admin/users", response_model=list[AdminUserOut])

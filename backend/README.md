@@ -200,26 +200,65 @@ want watched.
    `http://localhost:8000/cuenta.html` if testing locally). Supabase
    rejects `emailRedirectTo` values that aren't on this list.
 2. Render env vars (Dashboard → vigila-api → Environment): `SUPABASE_URL`,
-   `SUPABASE_ANON_KEY`, `TARGET_ENCRYPTION_KEY`, `RESEND_API_KEY` — see
+   `SUPABASE_ANON_KEY`, `TARGET_ENCRYPTION_KEY`, `RESEND_API_KEY`,
+   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+   `STRIPE_PRICE_ID_INDIVIDUAL`, `STRIPE_PRICE_ID_FAMILIAR` — see
    `.env.example`.
 3. GitHub Actions secrets on `check_targets.yml` (Settings → Secrets and
    variables → Actions): `TARGET_ENCRYPTION_KEY` (**must be the exact same
    value as Render's**, or the cron can't decrypt what the API encrypted)
    and `RESEND_API_KEY` (so the cron's own matches get emailed too, not
-   just the ones found at target-creation time).
+   just the ones found at target-creation time). Stripe's keys aren't
+   needed here — only the web API handles billing.
 4. Supabase Auth → Emails → SMTP Settings → custom SMTP via Resend
    (`smtp.resend.com`, port 465, username `resend`, password = the Resend
    API key, sender `noreply@vigilamultas.com`) — moves magic-link delivery
    off Supabase's shared mailer, which has a low project-wide rate limit
    that a few quick retries can exhaust for up to an hour.
 
+## Billing (Stripe)
+
+`app/billing.py` — raw `httpx` calls against Stripe's REST API (no SDK,
+same reasoning as `email.py`'s Resend client): checkout, the customer
+portal, and one webhook.
+
+- **`POST /api/billing/checkout`** (`{"plan": "individual"|"familiar"}`,
+  authenticated): creates a Stripe Checkout Session in `mode=subscription`
+  for the plan's monthly Price, with `billing_address_collection=required`
+  and `tax_id_collection[enabled]=true` so a business customer can enter
+  their CIF/VAT id and get a valid invoice. Returns `{"url": ...}` for the
+  frontend to redirect to.
+- **`POST /api/billing/portal`** (authenticated): creates a Stripe Billing
+  Portal session for a user who already has a `stripe_customer_id`, so they
+  can update payment details or cancel without us building any of that UI.
+- **`POST /api/billing/webhook`**: Stripe calls this on
+  `checkout.session.completed`, `customer.subscription.updated` and
+  `customer.subscription.deleted`. The raw request body is verified against
+  `Stripe-Signature` by hand (`billing.verify_webhook_signature` —
+  HMAC-SHA256 of `"{timestamp}.{body}"`, constant-time compared, 5-minute
+  replay tolerance) before anything in it is trusted, then
+  `billing.apply_event` updates the user's `plan`/`subscription_status`/
+  `stripe_customer_id` (`app/models.py`'s `User`).
+- **Plan-gated target limits**: `main._max_targets` returns 0 unless
+  `subscription_status` is `active` or `trialing`, otherwise the plan's own
+  cap (`billing.PLAN_TARGET_LIMITS`: Individual = 1, Familiar = 5).
+  `POST /api/targets` enforces this instead of the old flat
+  `MAX_TARGETS_PER_USER` constant, and `/api/auth/me` reports it as
+  `max_targets` so `cuenta.html`'s "Mi plan" card can show it without a
+  separate call.
+- The webhook endpoint (`https://api.vigilamultas.com/api/billing/webhook`)
+  and the Individual/Familiar Products + Prices already exist on the Stripe
+  side — only the four env vars in step 2 above need setting on Render for
+  this to go live.
+
 ## Admin panel
 
 `admin.html` (not linked from the public nav — reachable only by URL) shows
 two things behind `/api/admin/*`:
 
-- **Usuarios**: every account, its plan/subscription/Stripe fields (all
-  empty until Stripe is wired up), and how many targets/matches it has.
+- **Usuarios**: every account, its plan/subscription/Stripe fields (now
+  populated once a user subscribes — see "Billing (Stripe)"), and how many
+  targets/matches it has.
 - **Comprobaciones gratuitas**: aggregate totals from `checks_free` (how
   many checks, how many actually found a fine) plus a per-day breakdown.
   This can only ever be counts — `checks_free.value_hash` is a one-way
@@ -233,12 +272,15 @@ what they log into Vigila with.
 
 ## What's NOT implemented yet (fase 2, per the brief)
 
-- Stripe checkout + webhooks, customer portal, plan enforcement (there's a
-  flat `MAX_TARGETS_PER_USER = 5` anti-abuse cap in `main.py` instead of a
-  real per-plan limit).
 - Turnstile/CAPTCHA once the free-check rate limit is exceeded (currently
   just a 429 with a message).
 - SMS/WhatsApp alerts (email is wired up — see "Push email alert" above).
+- The landing page's anonymous "Quiero este plan" buttons (`index.html`)
+  are still email-capture only (`/api/waitlist`), not real checkout — real
+  subscribing happens from the logged-in "Mi plan" card in `cuenta.html`
+  instead, since Stripe checkout needs to be tied to an already-created
+  account (`client_reference_id`/`metadata.user_id`) for the webhook to
+  know whose row to update.
 
 ## Environment variables
 

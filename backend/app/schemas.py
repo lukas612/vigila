@@ -72,6 +72,21 @@ class SessionRequest(BaseModel):
 
 class MeResponse(BaseModel):
     email: str
+    plan: str | None = None
+    subscription_status: str = "none"
+    max_targets: int = 0
+
+
+class CheckoutRequest(BaseModel):
+    plan: str = Field(..., description="'individual' o 'familiar'")
+
+
+class CheckoutResponse(BaseModel):
+    url: str
+
+
+class PortalResponse(BaseModel):
+    url: str
 
 
 class CreateTargetRequest(BaseModel):
