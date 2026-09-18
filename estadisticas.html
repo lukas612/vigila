@@ -89,14 +89,7 @@
   }
   .privacy svg{ flex-shrink:0; margin-top:1px; color: var(--brand); }
 
-  .date-row{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
-  .date-row label{ font-size:13.5px; color: var(--ink-soft); font-weight:600; }
-  .date-select{
-    font-family: var(--font-ui); font-size:14px; font-weight:600; color: var(--ink);
-    padding:8px 14px; border:1.5px solid var(--line); border-radius: var(--radius-sm);
-    background: var(--paper); cursor:pointer;
-  }
-  .date-select:focus{ outline:none; border-color: var(--brand); }
+  .period-note{ text-align:center; font-size:13.5px; color: var(--ink-soft); font-weight:600; margin-bottom:22px; }
 
   .state{ text-align:center; padding:60px 20px; color: var(--ink-soft); }
   .state h2{ font-family: var(--font-head); color: var(--ink); font-size:20px; margin:0 0 8px; }
@@ -150,10 +143,7 @@
   </div>
 
   <div id="statsContent" hidden>
-    <div class="date-row">
-      <label for="dateSelect">Periodo:</label>
-      <select class="date-select" id="dateSelect"></select>
-    </div>
+    <p class="period-note" id="periodNote"></p>
 
     <div class="tiles">
       <div class="tile"><div class="n" id="tileExpedientes">—</div><div class="l">expedientes en el periodo</div></div>
@@ -238,18 +228,6 @@
     });
   }
 
-  async function loadStats(dateIso){
-    const resp = await fetch(API_BASE + '/api/stats/latest?date=' + encodeURIComponent(dateIso));
-    if(!resp.ok) throw new Error('no data for ' + dateIso);
-    const data = await resp.json();
-    if(!data.localidades || !data.localidades.length) throw new Error('empty');
-    renderStats(
-      data,
-      `Recuento de expedientes por localidad del denunciado — ${formatDate(data.stat_date)} (un solo día)`,
-      `Datos de un único día: ${formatDate(data.stat_date)}. Puede ser un día flojo o atípico — cambia a "Última semana" para una foto más estable.`
-    );
-  }
-
   async function loadWeekly(){
     const resp = await fetch(API_BASE + '/api/stats/weekly');
     if(!resp.ok) throw new Error('no weekly data');
@@ -257,6 +235,7 @@
     if(!data.localidades || !data.localidades.length) throw new Error('empty');
     const rango = formatRange(data.date_from, data.date_to);
     const nDias = data.days_included.length;
+    document.getElementById('periodNote').textContent = `Últimos 7 días · ${rango}`;
     renderStats(
       data,
       `Recuento de expedientes por localidad del denunciado — ${rango}`,
@@ -264,24 +243,10 @@
     );
   }
 
-  function loadSelected(value){
-    return value === 'week' ? loadWeekly() : loadStats(value);
-  }
-
   async function init(){
     try{
-      const datesResp = await fetch(API_BASE + '/api/stats/dates');
+      await loadWeekly();
       document.getElementById('loadingState').hidden = true;
-      if(!datesResp.ok) throw new Error('dates endpoint failed');
-      const dates = await datesResp.json();
-      if(!dates.length) throw new Error('no dates yet');
-
-      const select = document.getElementById('dateSelect');
-      const dayOptions = dates.map(d => `<option value="${d}">${formatDate(d)}</option>`).join('');
-      select.innerHTML = `<option value="week">Última semana</option>${dayOptions}`;
-      select.addEventListener('change', () => loadSelected(select.value).catch(() => {}));
-
-      await loadSelected('week'); // default: last week's aggregate, not a single noisy day
       document.getElementById('statsContent').hidden = false;
     }catch(e){
       document.getElementById('loadingState').hidden = true;
