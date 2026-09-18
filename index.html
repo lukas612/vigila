@@ -88,6 +88,7 @@
     font-family: var(--font-head); font-weight: 700; font-size: 21px; color: var(--brand);
   }
   .brand svg{ flex-shrink:0; }
+  .brand{ text-decoration:none; }
   .masthead-note{ font-size: 13px; color: var(--ink-faint); }
   .site-nav{ display:flex; align-items:center; gap:22px; }
   .site-nav a{
@@ -151,6 +152,7 @@
     font-size: 12.5px; color: var(--ink-faint); cursor:pointer;
   }
   .consent-row input{ margin-top:2px; flex-shrink:0; width:15px; height:15px; accent-color: var(--brand); }
+  .consent-row[hidden]{ display:none; }
 
   .field-error{ display:none; font-size:12.5px; color: var(--alert); margin-top:8px; text-align:left; }
   .field-error.show{ display:block; }
@@ -361,10 +363,10 @@
 <div class="site-header-sticky">
   <div class="wrap">
     <header class="masthead">
-      <span class="brand">
+      <a class="brand" href="index.html">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9.8" cy="9.8" r="5.6" stroke="var(--brand)" stroke-width="1.9"/><line x1="13.9" y1="13.9" x2="19.5" y2="19.5" stroke="var(--brand)" stroke-width="2.2" stroke-linecap="round"/><path d="M6.8 9.8L9 12L13.1 7.1" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         VigilaMultas
-      </span>
+      </a>
       <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="siteNav">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
@@ -562,6 +564,11 @@
           <input type="email" class="plan-email" data-plan="individual" placeholder="tu@email.com">
           <button class="btn-brand plan-btn" data-plan="individual">Quiero este plan</button>
         </div>
+        <label class="consent-row">
+          <input type="checkbox" class="plan-privacy" data-plan="individual">
+          <span>Acepto la <a href="privacidad.html" target="_blank" rel="noopener" style="text-decoration:underline;">política de privacidad</a>.</span>
+        </label>
+        <div class="field-error" data-plan-error="individual"></div>
         <div class="confirm plan-confirm" data-plan="individual">Gracias — te escribiremos para completar el alta.</div>
       </div>
       <div class="plan-card featured">
@@ -578,6 +585,11 @@
           <input type="email" class="plan-email" data-plan="familiar" placeholder="tu@email.com">
           <button class="btn-accent plan-btn" data-plan="familiar">Quiero este plan</button>
         </div>
+        <label class="consent-row">
+          <input type="checkbox" class="plan-privacy" data-plan="familiar">
+          <span>Acepto la <a href="privacidad.html" target="_blank" rel="noopener" style="text-decoration:underline;">política de privacidad</a>.</span>
+        </label>
+        <div class="field-error" data-plan-error="familiar"></div>
         <div class="confirm plan-confirm" data-plan="familiar">Gracias — te escribiremos para completar el alta.</div>
       </div>
     </div>
@@ -652,6 +664,8 @@
       const btn = cta.querySelector('.plan-btn');
       const plan = btn.dataset.plan;
       emailInput.hidden = true;
+      const privacyRow = document.querySelector('.plan-privacy[data-plan="' + plan + '"]');
+      if(privacyRow) privacyRow.closest('.consent-row').hidden = true;
       btn.replaceWith(btn.cloneNode(true)); // drop the anonymous (waitlist) click handler bound below
       const freshBtn = cta.querySelector('.plan-btn');
 
@@ -727,6 +741,11 @@
           <input type="email" id="emailInput" placeholder="tu@email.com">
           <button class="btn-brand" id="emailBtnOk">Activar aviso automático</button>
         </div>
+        <label class="consent-row">
+          <input type="checkbox" id="privacyOk">
+          <span>Acepto la <a href="privacidad.html" target="_blank" rel="noopener" style="text-decoration:underline;">política de privacidad</a>.</span>
+        </label>
+        <div class="field-error" id="emailErrorOk"></div>
         <div class="confirm" id="confirmOk">Listo — te avisaremos en cuanto haya novedades.</div>
         <p style="margin:10px 0 0;"><a href="#planes" style="color:var(--brand);font-weight:600;text-decoration:underline;font-size:13.5px;">Ver planes y precios</a></p>
       </div>
@@ -774,6 +793,11 @@
           <input type="email" id="emailInput" placeholder="tu@email.com">
           <button class="btn-accent" id="emailBtnAlert">Suscribirme por 3,99€/mes</button>
         </div>
+        <label class="consent-row">
+          <input type="checkbox" id="privacyAlert">
+          <span>Acepto la <a href="privacidad.html" target="_blank" rel="noopener" style="text-decoration:underline;">política de privacidad</a>.</span>
+        </label>
+        <div class="field-error" id="emailErrorAlert"></div>
         <div class="confirm" id="confirmAlert">Gracias — te escribiremos para completar el alta.</div>
         <p style="margin:10px 0 0;"><a href="#planes" style="color:var(--brand);font-weight:600;text-decoration:underline;font-size:13.5px;">Ver planes y precios</a></p>
       </div>
@@ -788,9 +812,17 @@
   function wireEmail(btnId, confirmId, context){
     const b = document.getElementById(btnId);
     const c = document.getElementById(confirmId);
+    const suffix = context.charAt(0).toUpperCase() + context.slice(1);
+    const privacyCheckbox = document.getElementById('privacy' + suffix);
+    const errorEl = document.getElementById('emailError' + suffix);
     b.addEventListener('click', async function(){
+      if(errorEl) errorEl.classList.remove('show');
       const val = document.getElementById('emailInput').value.trim();
       if(!val || !val.includes('@')) return;
+      if(privacyCheckbox && !privacyCheckbox.checked){
+        if(errorEl){ errorEl.textContent = 'Tienes que aceptar la política de privacidad.'; errorEl.classList.add('show'); }
+        return;
+      }
       gaEvent('lead_email_submit', { context });
       b.disabled = true;
       try{
@@ -881,8 +913,15 @@
       const plan = planBtn.dataset.plan;
       const emailInput = document.querySelector('.plan-email[data-plan="' + plan + '"]');
       const confirmEl = document.querySelector('.plan-confirm[data-plan="' + plan + '"]');
+      const privacyCheckbox = document.querySelector('.plan-privacy[data-plan="' + plan + '"]');
+      const errorEl = document.querySelector('[data-plan-error="' + plan + '"]');
+      if(errorEl) errorEl.classList.remove('show');
       const val = emailInput.value.trim();
       if(!val || !val.includes('@')){ emailInput.focus(); return; }
+      if(privacyCheckbox && !privacyCheckbox.checked){
+        if(errorEl){ errorEl.textContent = 'Tienes que aceptar la política de privacidad.'; errorEl.classList.add('show'); }
+        return;
+      }
       gaEvent('select_plan', { plan, method: 'email_capture', page: 'home', logged_in: false });
       planBtn.disabled = true;
       try{
