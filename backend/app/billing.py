@@ -85,9 +85,13 @@ def _request(method: str, path: str, **form_data: str) -> dict:
 
 def create_checkout_session(user: User, plan: Plan, success_url: str, cancel_url: str) -> str:
     """Starts a monthly subscription checkout for `plan`. Collects the
-    customer's billing address and offers a CIF/VAT field
-    (tax_id_collection) — needed for business customers to get a valid
-    invoice, per the brief."""
+    customer's full name and billing address (billing_address_collection),
+    a phone number (phone_number_collection), and offers a CIF/VAT field
+    (tax_id_collection) — a subscriber who's given a name and phone reads
+    as a real, accountable customer, not just an email address, and
+    business customers need the CIF for a valid invoice. All of this comes
+    back on the checkout.session.completed webhook's `customer_details`
+    and is copied onto our own User row there (see apply_event)."""
     price_id = PLAN_PRICE_IDS.get(plan)
     if not price_id:
         raise StripeError(f"No hay price de Stripe configurado para el plan {plan.value}")
@@ -100,6 +104,7 @@ def create_checkout_session(user: User, plan: Plan, success_url: str, cancel_url
         "cancel_url": cancel_url,
         "client_reference_id": user.id,
         "billing_address_collection": "required",
+        "phone_number_collection[enabled]": "true",
         "tax_id_collection[enabled]": "true",
         "metadata[user_id]": user.id,
         "metadata[plan]": plan.value,
@@ -169,6 +174,11 @@ def apply_event(db: Session, event: dict) -> None:
             return
         if obj.get("customer"):
             user.stripe_customer_id = obj["customer"]
+        customer_details = obj.get("customer_details") or {}
+        if customer_details.get("name"):
+            user.name = customer_details["name"]
+        if customer_details.get("phone"):
+            user.phone = customer_details["phone"]
         plan_value = (obj.get("metadata") or {}).get("plan")
         if plan_value:
             try:

@@ -225,9 +225,14 @@ portal, and one webhook.
 - **`POST /api/billing/checkout`** (`{"plan": "individual"|"familiar"}`,
   authenticated): creates a Stripe Checkout Session in `mode=subscription`
   for the plan's monthly Price, with `billing_address_collection=required`
-  and `tax_id_collection[enabled]=true` so a business customer can enter
-  their CIF/VAT id and get a valid invoice. Returns `{"url": ...}` for the
-  frontend to redirect to.
+  (full name + address), `phone_number_collection[enabled]=true`, and
+  `tax_id_collection[enabled]=true` so a business customer can enter their
+  CIF/VAT id and get a valid invoice — a subscriber who's given a name and
+  phone is a real, accountable customer rather than just an email address.
+  Returns `{"url": ...}` for the frontend to redirect to. All of this comes
+  back in `customer_details` on the `checkout.session.completed` webhook
+  and is copied onto `User.name`/`User.phone` there (see
+  `billing.apply_event`), and shows up in the admin panel's Usuarios table.
 - **`POST /api/billing/portal`** (authenticated): creates a Stripe Billing
   Portal session for a user who already has a `stripe_customer_id`, so they
   can update payment details, cancel, **switch between Individual and

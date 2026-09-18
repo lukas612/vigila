@@ -121,6 +121,8 @@ class TargetOut(BaseModel):
 class AdminUserOut(BaseModel):
     id: str
     email: str
+    name: str | None
+    phone: str | None
     created_at: str
     plan: str | None
     subscription_status: str

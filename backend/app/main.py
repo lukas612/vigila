@@ -449,6 +449,8 @@ def admin_users(
             AdminUserOut(
                 id=u.id,
                 email=u.email,
+                name=u.name,
+                phone=u.phone,
                 created_at=u.created_at.isoformat(),
                 plan=u.plan.value if u.plan else None,
                 subscription_status=u.subscription_status.value,

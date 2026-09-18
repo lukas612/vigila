@@ -59,6 +59,14 @@ class User(Base):
     )
     plan: Mapped[Plan | None] = mapped_column(Enum(Plan), nullable=True)
 
+    # Collected by Stripe Checkout itself (billing_address_collection +
+    # phone_number_collection, see billing.create_checkout_session) and
+    # copied here from the checkout.session.completed webhook — a name and
+    # phone alongside the email makes a subscriber feel like a real,
+    # accountable customer rather than an anonymous address.
+    name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
     monitored_ids: Mapped[list["MonitoredId"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
