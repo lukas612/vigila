@@ -677,15 +677,6 @@
     });
   });
 
-  const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  function formatRangeShort(fromIso, toIso){
-    const [, fm, fd] = fromIso.split('-').map(Number);
-    const [, tm, td] = toIso.split('-').map(Number);
-    if(fromIso === toIso) return `${td} ${MESES_CORTOS[tm-1]}`;
-    if(fm === tm) return `${fd}-${td} ${MESES_CORTOS[tm-1]}`;
-    return `${fd} ${MESES_CORTOS[fm-1]}-${td} ${MESES_CORTOS[tm-1]}`;
-  }
-
   (async function loadDailyHook(){
     const section = document.getElementById('dailyHook');
     try{
@@ -700,9 +691,8 @@
       const formatEuros = (value) => value >= 1e6
         ? (value/1e6).toLocaleString('es-ES', {maximumFractionDigits:1}) + ' M €'
         : Math.round(value).toLocaleString('es-ES') + ' €';
-      const rango = formatRangeShort(data.date_from, data.date_to);
       document.getElementById('hookHeadline').innerHTML =
-        `Del <span class="n">${rango}</span> hubo <span class="n">${data.total_expedientes.toLocaleString('es-ES')}</span> sancionados`;
+        `La <span class="n">última semana</span> hubo <span class="n">${data.total_expedientes.toLocaleString('es-ES')}</span> sancionados`;
       document.getElementById('hookSub').textContent =
         `${formatEuros(data.total_importe)} en multas esa última semana. Muchos aún no han recibido nada por correo.`;
 
