@@ -1,0 +1,30 @@
+name: Check monitored targets
+
+# Re-runs the BOE check pipeline for every active monitored DNI/NIE/matrícula
+# and records new matches — same reasoning as daily_stats.yml for running
+# here instead of inside a Render web request: checking N targets can mean
+# downloading and parsing several PDFs each, which needs real CPU.
+on:
+  schedule:
+    # Twice a day (08:00 and 20:00 UTC) — frequent enough that a match
+    # doesn't sit unseen for a full day, without hammering the BOE.
+    - cron: "0 8,20 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Check monitored targets
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TARGET_ENCRYPTION_KEY: ${{ secrets.TARGET_ENCRYPTION_KEY }}
+        run: python -m scripts.check_monitored_targets

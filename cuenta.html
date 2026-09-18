@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mi cuenta — Vigila</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand: #1B4D8C;
+    --brand-dark: #123A6B;
+    --brand-light: #EAF2FC;
+    --accent: #F5A623;
+    --accent-dark: #DE8E0B;
+    --ink: #182233;
+    --ink-soft: #57607A;
+    --ink-faint: #8B93A6;
+    --ok: #1F9254;
+    --ok-soft: #E6F5EC;
+    --alert: #D93025;
+    --alert-soft: #FCEAE9;
+    --paper: #FFFFFF;
+    --surface: #F5F8FC;
+    --line: #E3E9F2;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 6px 16px rgba(19, 41, 75, 0.08);
+    --font-head: 'Poppins', -apple-system, sans-serif;
+    --font-ui: 'IBM Plex Sans', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+      --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424; --alert-soft:#3A1A18;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+    --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424; --alert-soft:#3A1A18;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background: var(--paper); color: var(--ink); font-family: var(--font-ui); line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  a{ color:inherit; }
+  .wrap{ max-width: 1040px; margin:0 auto; padding: 0 24px; }
+  .wrap-narrow{ max-width: 640px; margin:0 auto; padding:0 24px; }
+
+  .site-header-sticky{ position: sticky; top: 0; z-index: 50; background: var(--paper); }
+  header.masthead{ padding: 16px 0; display:flex; align-items:center; justify-content:space-between; }
+  .brand{ display:flex; align-items:center; gap:9px; font-family: var(--font-head); font-weight: 700; font-size: 21px; color: var(--brand); }
+  .brand svg{ flex-shrink:0; }
+  .site-nav{ display:flex; align-items:center; gap:22px; }
+  .site-nav a{ font-size:14px; font-weight:600; color: var(--ink-soft); text-decoration:none; }
+  .site-nav a:hover, .site-nav a.active{ color: var(--brand); }
+
+  .disclaimer-strip{
+    font-size: 12.5px; color: var(--ink-faint); text-align:center;
+    padding: 7px 24px; background: var(--surface); border-bottom: 1px solid var(--line);
+  }
+
+  .page-hero{ padding: 44px 0 8px; text-align:center; }
+  .eyebrow{ font-size:12px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--brand); margin-bottom:10px; }
+  .page-hero h1{ font-family: var(--font-head); font-weight:800; font-size:32px; margin:0 0 10px; }
+  .page-hero p{ color: var(--ink-soft); font-size:15px; max-width:60ch; margin:0 auto; }
+
+  main{ padding: 34px 0 60px; }
+
+  .card{ background: var(--paper); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding:28px; margin-bottom:22px; }
+  .card h2{ font-family: var(--font-head); font-size:18px; font-weight:700; margin:0 0 4px; }
+  .card .sub{ font-size:13px; color: var(--ink-faint); margin:0 0 22px; }
+
+  .field-label{ display:block; font-size: 13.5px; font-weight:600; color: var(--ink-soft); margin-bottom:8px; text-align:left; }
+  .field-row{ display:flex; gap:10px; flex-wrap:wrap; }
+  .field-row > *{ flex:1; min-width:180px; }
+  input[type="text"], input[type="email"]{
+    width:100%; font-family: var(--font-ui); font-size:15px;
+    padding: 13px 15px; border: 1.5px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--surface); color: var(--ink);
+  }
+  input[type="text"]:focus, input[type="email"]:focus{ outline:none; border-color: var(--brand); background: var(--paper); }
+  input.invalid{ border-color: var(--alert); }
+
+  button{
+    font-family: var(--font-ui); font-weight:700; font-size:14.5px; border:none;
+    border-radius: var(--radius-sm); cursor:pointer; padding: 13px 20px; white-space:nowrap;
+  }
+  .btn-accent{ background: var(--accent); color: #2A1B00; }
+  .btn-accent:hover{ background: var(--accent-dark); }
+  .btn-accent:disabled, .btn-brand:disabled{ opacity:0.6; cursor:default; }
+  .btn-brand{ background: var(--brand); color: #fff; }
+  .btn-brand:hover{ background: var(--brand-dark); }
+  .btn-ghost{ background: none; color: var(--alert); padding: 6px 10px; font-size:13px; }
+  .btn-ghost:hover{ text-decoration: underline; }
+  .btn-link{ background:none; color: var(--ink-soft); padding:6px 0; font-size:13px; text-decoration:underline; }
+
+  .consent-row{
+    display:flex; align-items:flex-start; gap:9px; margin-top:14px; text-align:left;
+    font-size: 12.5px; color: var(--ink-faint); cursor:pointer;
+  }
+  .consent-row input{ margin-top:2px; flex-shrink:0; width:15px; height:15px; accent-color: var(--brand); }
+
+  .field-error{ display:none; font-size:12.5px; color: var(--alert); margin-top:10px; text-align:left; }
+  .field-error.show{ display:block; }
+  .field-ok{ display:none; font-size:13.5px; color: var(--ok); margin-top:10px; font-weight:600; }
+  .field-ok.show{ display:block; }
+
+  .account-bar{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:6px; }
+  .account-email{ font-size:14px; color: var(--ink-soft); }
+  .account-email b{ color: var(--ink); }
+
+  .target{ border:1px solid var(--line); border-radius: var(--radius-sm); padding:16px 18px; margin-bottom:12px; }
+  .target-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .target-name{ font-weight:700; font-size:15px; }
+  .target-value{ font-family: var(--font-mono); font-size:13px; color: var(--ink-faint); }
+  .target-meta{ font-size:12.5px; color: var(--ink-faint); margin-top:4px; }
+
+  .fine-table{ margin-top:14px; border:1px solid var(--line); border-radius: var(--radius-sm); overflow:hidden; font-size:13.5px; }
+  .fine-table + .fine-table{ margin-top:10px; }
+  .fine-table .row{ display:flex; justify-content:space-between; padding:10px 14px; background: var(--surface); gap:12px; }
+  .fine-table .row:nth-child(even){ background: var(--paper); }
+  .fine-table .row span:first-child{ color: var(--ink-faint); }
+  .fine-table .row span:last-child{ color: var(--ink); font-weight:600; text-align:right; }
+  .plazo-ok{ color: var(--ok) !important; }
+  .plazo-alert{ color: var(--alert) !important; }
+
+  .empty-targets{ text-align:center; color: var(--ink-faint); font-size:14px; padding:20px 0; }
+
+  .state{ text-align:center; padding:60px 20px; color: var(--ink-soft); }
+  .state h2{ font-family: var(--font-head); color: var(--ink); font-size:20px; margin:0 0 8px; }
+  [hidden]{ display:none !important; }
+
+  footer{ padding: 24px 0 44px; font-size:12.5px; color: var(--ink-faint); text-align:center; }
+
+  @media (max-width: 640px){
+    .page-hero h1{ font-size:26px; }
+    .masthead-note{ display:none; }
+    .site-nav{ gap:14px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="site-header-sticky">
+  <div class="wrap">
+    <header class="masthead">
+      <span class="brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2l8 3.5v6.2c0 5.6-3.8 9.6-8 11.3-4.2-1.7-8-5.7-8-11.3V5.5L12 2z" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 12l2.4 2.4L16 9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Vigila
+      </span>
+      <nav class="site-nav">
+        <a href="index.html">Comprobar</a>
+        <a href="index.html#planes">Planes</a>
+        <a href="estadisticas.html">Estadísticas</a>
+        <a href="cuenta.html" class="active">Mi cuenta</a>
+      </nav>
+    </header>
+  </div>
+  <div class="disclaimer-strip">Servicio independiente. No es un organismo público ni está afiliado a la Administración General del Estado.</div>
+</div>
+
+<div class="page-hero wrap">
+  <div class="eyebrow">Vigilancia automática</div>
+  <h1>Mi cuenta</h1>
+  <p>Accede sin contraseña: te mandamos un enlace de un solo uso a tu correo. Desde aquí guardas los DNI/NIE/matrículas que quieres vigilar y revisamos el BOE por ti dos veces al día.</p>
+</div>
+
+<main class="wrap-narrow">
+  <div class="state" id="loadingState">
+    <h2>Comprobando tu sesión…</h2>
+  </div>
+
+  <div id="loginState" hidden>
+    <div class="card">
+      <h2>Accede a tu cuenta</h2>
+      <p class="sub">Sin contraseña. Escribe tu email y te mandamos un enlace para entrar.</p>
+      <label class="field-label" for="loginEmail">Email</label>
+      <div class="field-row">
+        <input type="email" id="loginEmail" placeholder="tucorreo@ejemplo.com" autocomplete="email">
+        <button class="btn-brand" id="loginBtn" style="flex:0 0 auto;">Enviar enlace</button>
+      </div>
+      <div class="field-error" id="loginError"></div>
+      <div class="field-ok" id="loginOk">Revisa tu correo — te hemos enviado un enlace de acceso.</div>
+    </div>
+  </div>
+
+  <div id="dashboardState" hidden>
+    <div class="card">
+      <div class="account-bar">
+        <div class="account-email">Sesión iniciada como <b id="accountEmail"></b></div>
+        <button class="btn-ghost" id="logoutBtn">Cerrar sesión</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Añadir vigilancia</h2>
+      <p class="sub">Guarda un DNI, NIE o matrícula. Lo revisamos automáticamente y verás aquí cualquier notificación que encontremos.</p>
+      <label class="field-label" for="targetValue">DNI, NIE o matrícula</label>
+      <div class="field-row">
+        <input type="text" id="targetValue" placeholder="Ej. 12345678A o 1234ABC" autocomplete="off">
+        <input type="text" id="targetLabel" placeholder="Apodo opcional (p.ej. 'mi coche')">
+        <button class="btn-accent" id="addTargetBtn" style="flex:0 0 auto;">Vigilar</button>
+      </div>
+      <label class="consent-row">
+        <input type="checkbox" id="targetConsent">
+        <span>Acepto que Vigila guarde este dato (cifrado) para revisarlo automáticamente en el BOE hasta que yo lo elimine.</span>
+      </label>
+      <div class="field-error" id="targetError"></div>
+    </div>
+
+    <div class="card">
+      <h2>Mis vigilancias</h2>
+      <p class="sub" id="targetsSub"></p>
+      <div id="targetsList"></div>
+      <div class="empty-targets" id="emptyTargets" hidden>Todavía no vigilas ningún DNI o matrícula. Añádelo arriba.</div>
+    </div>
+  </div>
+</main>
+
+<div class="wrap">
+  <footer>
+    <p>&copy; 2026 Vigila</p>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+  // This copy is served from GitHub Pages (a static host), so it always
+  // needs the API's own origin — unlike the local dev copy under
+  // frontend/cuenta.html, which is served by the FastAPI app itself and
+  // can safely default to same-origin.
+  window.VIGILA_API_BASE = window.VIGILA_API_BASE || 'https://vigila-api.onrender.com';
+</script>
+<script>
+(function(){
+  const API_BASE = window.VIGILA_API_BASE || '';
+
+  // Public by design — an anon key only opens Supabase Auth's magic-link
+  // flow here, it never touches our own tables (those go through our API,
+  // authenticated by the HttpOnly session cookie, not this key).
+  const SUPABASE_URL = 'https://wwxlzvfxlfuodikcamlq.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3eGx6dmZ4bGZ1b2Rpa2NhbWxxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk2Njg0MTEsImV4cCI6MjEwNTI0NDQxMX0.J_s1O-_ETuI0oyHZH1pSb3EZgYOdz6zW_PzxwJQ00-Y';
+
+  // persistSession:false on purpose — the browser session cookie our own
+  // API sets (HttpOnly) is the real source of truth from here on, so
+  // there's no reason for Supabase's tokens to also sit in localStorage.
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false, detectSessionInUrl: true },
+  });
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function showError(el, msg){
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideError(el){
+    el.classList.remove('show');
+  }
+
+  async function exchangeSession(session){
+    await fetch(API_BASE + '/api/auth/session', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+        expires_in: session.expires_in,
+      }),
+    });
+    // Drop the #access_token=... fragment Supabase appended so a refresh
+    // or a shared link doesn't carry it around.
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  async function fetchMe(){
+    const resp = await fetch(API_BASE + '/api/auth/me', { credentials: 'include' });
+    if(!resp.ok) return null;
+    return resp.json();
+  }
+
+  function formatDate(iso){
+    const d = new Date(iso);
+    if(isNaN(d)) return iso;
+    return d.toLocaleDateString('es-ES');
+  }
+
+  function renderNotification(n){
+    const cls = n.dias_restantes !== null && n.dias_restantes <= 5 ? 'plazo-alert' : 'plazo-ok';
+    const plazoText = n.plazo_alegacion_fin
+      ? `${n.plazo_alegacion_fin}${n.dias_restantes !== null ? ` (${n.dias_restantes >= 0 ? n.dias_restantes + ' días' : 'vencido'})` : ''}`
+      : '—';
+    return `
+      <div class="fine-table">
+        <div class="row"><span>Localidad</span><span>${escapeHtml(n.localidad || '—')}</span></div>
+        <div class="row"><span>Importe</span><span>${escapeHtml(n.importe != null ? n.importe + ' €' : '—')}</span></div>
+        <div class="row"><span>Precepto</span><span>${escapeHtml(n.precepto || n.articulo || '—')}</span></div>
+        <div class="row"><span>Plazo de alegación</span><span class="${cls}">${escapeHtml(plazoText)}</span></div>
+      </div>
+    `;
+  }
+
+  function renderTarget(t){
+    const title = t.label ? escapeHtml(t.label) : escapeHtml(t.value_masked);
+    const sub = t.label ? escapeHtml(t.value_masked) : '';
+    const lastChecked = t.last_checked_at
+      ? `Última revisión: ${formatDate(t.last_checked_at)}`
+      : 'Aún sin revisar — se comprueba dos veces al día';
+    const hits = t.notifications.length
+      ? t.notifications.map(renderNotification).join('')
+      : '<p class="target-meta" style="margin-top:12px;">Sin notificaciones encontradas por ahora.</p>';
+    return `
+      <div class="target" data-id="${t.id}">
+        <div class="target-top">
+          <div>
+            <div class="target-name">${title}</div>
+            ${sub ? `<div class="target-value">${sub}</div>` : ''}
+          </div>
+          <button class="btn-ghost" data-delete="${t.id}">Eliminar</button>
+        </div>
+        <div class="target-meta">${lastChecked}</div>
+        ${hits}
+      </div>
+    `;
+  }
+
+  async function loadTargets(){
+    const resp = await fetch(API_BASE + '/api/targets', { credentials: 'include' });
+    if(!resp.ok) return;
+    const targets = await resp.json();
+    const list = document.getElementById('targetsList');
+    const empty = document.getElementById('emptyTargets');
+    const sub = document.getElementById('targetsSub');
+    sub.textContent = targets.length
+      ? `${targets.length} de 5 vigilancias usadas`
+      : 'Aún no has añadido ninguna.';
+    if(!targets.length){
+      list.innerHTML = '';
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    list.innerHTML = targets.map(renderTarget).join('');
+    list.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if(!confirm('¿Dejar de vigilar este identificador? Se borrará también su historial.')) return;
+        btn.disabled = true;
+        await fetch(API_BASE + '/api/targets/' + btn.getAttribute('data-delete'), {
+          method: 'DELETE', credentials: 'include',
+        });
+        loadTargets();
+      });
+    });
+  }
+
+  function showDashboard(email){
+    document.getElementById('loadingState').hidden = true;
+    document.getElementById('loginState').hidden = true;
+    document.getElementById('dashboardState').hidden = false;
+    document.getElementById('accountEmail').textContent = email;
+    loadTargets();
+  }
+
+  function showLogin(){
+    document.getElementById('loadingState').hidden = true;
+    document.getElementById('dashboardState').hidden = true;
+    document.getElementById('loginState').hidden = false;
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', async () => {
+    const emailInput = document.getElementById('loginEmail');
+    const errorEl = document.getElementById('loginError');
+    const okEl = document.getElementById('loginOk');
+    hideError(errorEl);
+    okEl.classList.remove('show');
+    const email = emailInput.value.trim();
+    if(!email || !email.includes('@')){
+      showError(errorEl, 'Escribe un email válido');
+      return;
+    }
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    btn.textContent = 'Enviando…';
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    });
+    btn.disabled = false;
+    btn.textContent = 'Enviar enlace';
+    if(error){
+      showError(errorEl, 'No se pudo enviar el enlace. Inténtalo de nuevo en unos minutos.');
+      return;
+    }
+    okEl.classList.add('show');
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    await fetch(API_BASE + '/api/auth/logout', { method: 'POST', credentials: 'include' });
+    window.location.reload();
+  });
+
+  document.getElementById('addTargetBtn').addEventListener('click', async () => {
+    const valueInput = document.getElementById('targetValue');
+    const labelInput = document.getElementById('targetLabel');
+    const consentInput = document.getElementById('targetConsent');
+    const errorEl = document.getElementById('targetError');
+    hideError(errorEl);
+
+    if(!consentInput.checked){
+      showError(errorEl, 'Tienes que aceptar guardar el dato para vigilarlo');
+      return;
+    }
+    const btn = document.getElementById('addTargetBtn');
+    btn.disabled = true;
+    try{
+      const resp = await fetch(API_BASE + '/api/targets', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          value: valueInput.value.trim(),
+          label: labelInput.value.trim() || null,
+          consent: true,
+        }),
+      });
+      if(!resp.ok){
+        const data = await resp.json().catch(() => ({}));
+        showError(errorEl, data.detail || 'No se pudo añadir. Revisa el formato.');
+        return;
+      }
+      valueInput.value = '';
+      labelInput.value = '';
+      consentInput.checked = false;
+      loadTargets();
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  async function init(){
+    const { data: { session } } = await supabase.auth.getSession();
+    if(session){
+      await exchangeSession(session);
+      const me = await fetchMe();
+      if(me){ showDashboard(me.email); return; }
+    }
+    const me = await fetchMe();
+    if(me){ showDashboard(me.email); return; }
+    showLogin();
+  }
+
+  init();
+})();
+</script>
+
+</body>
+</html>

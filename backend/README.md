@@ -151,12 +151,64 @@ pytest
 Tests are fully offline — `tests/fixtures/` has real HTML/PDF snapshots
 captured from `boe.es` during development, mocked in with `respx`.
 
+## Accounts and monitoring
+
+Passwordless login (magic link) via Supabase Auth, plus a small dashboard
+(`cuenta.html`) where a logged-in user saves the DNI/NIE/matrícula they
+want watched.
+
+- **Login**: the frontend calls `supabase.auth.signInWithOtp({email})`
+  directly (Supabase's own JS client, loaded from a CDN) — this backend
+  never sees a password or handles the email itself. Once the user clicks
+  the link, the frontend hands the resulting access/refresh tokens to
+  `POST /api/auth/session`, which verifies them against Supabase
+  (`GET /auth/v1/user`) and wraps them in `HttpOnly; Secure; SameSite=None`
+  cookies (`app/auth.py`). Every other `/api/*` call reads those cookies —
+  the tokens are never exposed to page JS, and `get_current_user` silently
+  refreshes an expired access token using the refresh-token cookie, so a
+  session survives well past Supabase's ~1h access-token lifetime.
+- **Why cookies and not a JWT in localStorage**: HttpOnly cookies can't be
+  read by page JS at all, which is the point — an XSS bug can't walk off
+  with the session. The cost is CORS has to allow credentials
+  (`allow_credentials=True`) and the frontend has to pass
+  `credentials: 'include'` on every fetch, since the frontend (GitHub
+  Pages) and this API (Render) are different origins.
+- **Monitored targets** (`monitored_ids` table): the DNI/NIE/matrícula
+  itself is Fernet-encrypted at rest (`app/crypto.py`,
+  `TARGET_ENCRYPTION_KEY`) rather than hashed like `checks_free` — hashing
+  is one-way and useless here, since `scripts/check_monitored_targets.py`
+  has to decrypt the value to re-query the BOE. `/api/targets` only ever
+  returns a masked value (`••••5678A`) to the browser, never the plaintext.
+- **The monitoring cron** (`check_targets.yml`, twice daily) reuses
+  `check_service.run_check` — the exact same pipeline the free checker
+  uses, so "found" never means something different between the two paths —
+  and records new matches in `notifications`, deduped on
+  `(monitored_id, boe_ref, expediente)` so a repeated run never double-counts.
+  **This is pull-based, not push**: a match shows up next time the user
+  opens `cuenta.html`, nothing emails them yet. Sending an actual "you were
+  fined" email needs a transactional email provider — Supabase Auth's
+  mailer only sends its own login emails, not arbitrary content — and is a
+  deliberate follow-up, not an oversight.
+
+### One-time setup this session couldn't do itself
+
+1. **Supabase → Authentication → URL Configuration → Redirect URLs**: add
+   `https://lukas612.github.io/vigila/cuenta.html` (and
+   `http://localhost:8000/cuenta.html` if testing locally). Supabase
+   rejects `emailRedirectTo` values that aren't on this list.
+2. Render env vars (Dashboard → vigila-api → Environment): `SUPABASE_URL`,
+   `SUPABASE_ANON_KEY`, `TARGET_ENCRYPTION_KEY` — see `.env.example`.
+3. GitHub Actions secret `TARGET_ENCRYPTION_KEY` on `check_targets.yml`
+   (Settings → Secrets and variables → Actions) — **must be the exact same
+   value as Render's**, or the cron can't decrypt what the API encrypted.
+
 ## What's NOT implemented yet (fase 2, per the brief)
 
-- Auth / user accounts, Stripe checkout + webhooks, customer portal.
-- The cron job that loops over `monitored_ids` and sends email alerts
-  (the pipeline it would call, `check_service.run_check`, already exists).
-- User dashboard.
+- Stripe checkout + webhooks, customer portal, plan enforcement (there's a
+  flat `MAX_TARGETS_PER_USER = 5` anti-abuse cap in `main.py` instead of a
+  real per-plan limit).
+- Push email alerts for a new match (see "The monitoring cron" above) —
+  needs picking a transactional email provider.
 - Turnstile/CAPTCHA once the free-check rate limit is exceeded (currently
   just a 429 with a message).
 - SMS/WhatsApp alerts.

@@ -55,3 +55,45 @@ class WeeklyStatsResponse(BaseModel):
     total_expedientes: int
     total_importe: float
     localidades: list[LocalityStat]
+
+
+class SessionRequest(BaseModel):
+    """The tokens Supabase Auth's JS client receives after a magic-link
+    login, handed to us once so we can wrap them in HttpOnly cookies."""
+
+    access_token: str
+    refresh_token: str
+    expires_in: int = 3600
+
+
+class MeResponse(BaseModel):
+    email: str
+
+
+class CreateTargetRequest(BaseModel):
+    value: str = Field(..., min_length=5, max_length=20, description="DNI, NIE o matrícula a vigilar")
+    label: str | None = Field(None, max_length=120, description="Apodo opcional, p.ej. 'coche de Ana'")
+    consent: bool = Field(..., description="Consentimiento explícito para guardar y vigilar este identificador")
+
+
+class NotificationHitOut(BaseModel):
+    boe_ref: str
+    expediente: str | None
+    matricula: str | None
+    localidad: str | None
+    importe: float | None
+    fecha: str | None
+    precepto: str | None
+    articulo: str | None
+    plazo_alegacion_fin: str | None = Field(None, description="DD/MM/AAAA")
+    dias_restantes: int | None
+
+
+class TargetOut(BaseModel):
+    id: str
+    label: str | None
+    value_masked: str = Field(..., description="Identificador con todo menos los últimos caracteres ocultos")
+    active: bool
+    created_at: str
+    last_checked_at: str | None
+    notifications: list[NotificationHitOut]

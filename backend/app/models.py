@@ -41,11 +41,16 @@ class CheckResultEnum(str, enum.Enum):
 
 
 class User(Base):
+    """App-level profile, keyed by the same id Supabase Auth assigned the
+    user (its uuid) — identity itself (email verification, magic-link
+    tokens, sessions) lives entirely in Supabase Auth's own `auth.users`;
+    this row only exists for the billing fields Supabase Auth doesn't
+    track. Created lazily on first login (see main.create_session)."""
+
     __tablename__ = "users"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False, index=True)
-    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -61,13 +66,22 @@ class MonitoredId(Base):
     __tablename__ = "monitored_ids"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False, index=True)
-    value: Mapped[str] = mapped_column(String(20), nullable=False)  # DNI/NIE/matricula, normalized
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Fernet ciphertext, not the DNI/NIE/matrícula itself — see crypto.py.
+    # Unlike checks_free (which only ever needs a one-way hash), the daily
+    # monitoring cron has to decrypt this to re-query the BOE.
+    value_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
     label: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
     user: Mapped["User"] = relationship(back_populates="monitored_ids")
-    notifications: Mapped[list["Notification"]] = relationship(back_populates="monitored_id_ref")
+    notifications: Mapped[list["Notification"]] = relationship(
+        back_populates="monitored_id_ref", cascade="all, delete-orphan"
+    )
 
 
 class CheckFree(Base):
@@ -89,16 +103,23 @@ class CheckFree(Base):
 
 class Notification(Base):
     __tablename__ = "notifications"
+    __table_args__ = (
+        UniqueConstraint("monitored_id", "boe_ref", "expediente", name="uq_notifications_target_expediente"),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    monitored_id: Mapped[str] = mapped_column(String(36), ForeignKey("monitored_ids.id"), nullable=False, index=True)
+    monitored_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("monitored_ids.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     boe_ref: Mapped[str] = mapped_column(String(40), nullable=False)
     expediente: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    matricula: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    localidad: Mapped[str | None] = mapped_column(String(120), nullable=True)
     importe: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     fecha: Mapped[str | None] = mapped_column(String(20), nullable=True)
     precepto: Mapped[str | None] = mapped_column(String(120), nullable=True)
     articulo: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    plazo_alegacion_fin: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    plazo_alegacion_fin: Mapped[date | None] = mapped_column(Date, nullable=True)
     seen_by_user: Mapped[bool] = mapped_column(Boolean, default=False)
     notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
@@ -141,7 +162,9 @@ class NotificationRun(Base):
     __tablename__ = "notification_runs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
-    monitored_id: Mapped[str] = mapped_column(String(36), ForeignKey("monitored_ids.id"), nullable=False, index=True)
+    monitored_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("monitored_ids.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     ran_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
     result: Mapped[CheckResultEnum] = mapped_column(Enum(CheckResultEnum), nullable=False)
     raw_response_snippet: Mapped[str | None] = mapped_column(Text, nullable=True)

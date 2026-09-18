@@ -4,22 +4,27 @@ import asyncio
 import logging
 from datetime import date
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from . import check_service
+from . import auth, check_service, crypto
 from .db import get_db, init_db
-from .models import CheckFree, CheckResultEnum, DailyStat, WaitlistSignup
+from .models import CheckFree, CheckResultEnum, DailyStat, MonitoredId, Notification, User, WaitlistSignup
 from .rate_limit import RateLimiter, hash_identifier
 from .schemas import (
     CheckRequest,
     CheckResponse,
+    CreateTargetRequest,
     DailyStatsResponse,
     LocalityStat,
+    MeResponse,
+    NotificationHitOut,
     NotificationOut,
+    SessionRequest,
+    TargetOut,
     WaitlistRequest,
     WeeklyStatsResponse,
 )
@@ -36,11 +41,17 @@ app.add_middleware(
         "http://localhost:8000",
         "http://127.0.0.1:8000",
     ],
-    allow_methods=["GET", "POST"],
+    allow_credentials=True,  # required for the sb_access_token/sb_refresh_token session cookies
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
 free_check_limiter = RateLimiter(max_requests=5, window_seconds=3600)
+
+# Anti-abuse cap until plan-based billing actually gates this (Individual vs
+# Familiar should have different limits, but there's no billing enforcement
+# yet — see stripe_customer_id/plan on User, unused so far).
+MAX_TARGETS_PER_USER = 5
 
 
 @app.on_event("startup")
@@ -195,6 +206,129 @@ def stats_weekly(
             LocalityStat(localidad=r.localidad, expedientes_count=r.count, importe_total=r.importe) for r in rows
         ],
     )
+
+
+def _ensure_profile(db: Session, user: auth.AuthUser) -> None:
+    """Create the billing-fields profile row on first login. Identity
+    itself already exists in Supabase's auth.users — this just gives it
+    somewhere to hang plan/subscription_status/stripe_customer_id."""
+    if not db.query(User).filter(User.id == user.id).first():
+        db.add(User(id=user.id, email=user.email))
+        db.commit()
+
+
+@app.post("/api/auth/session", response_model=MeResponse)
+def create_session(payload: SessionRequest, response: Response, db: Session = Depends(get_db)) -> MeResponse:
+    """Called once by the frontend right after Supabase's JS client
+    completes a magic-link login. Verifies the tokens it hands us are
+    real (rather than trusting the client), then wraps them in the
+    HttpOnly cookies every other /api/* call reads."""
+    try:
+        user = auth.fetch_user(payload.access_token)
+    except auth.InvalidSession:
+        raise HTTPException(status_code=401, detail="Token inválido") from None
+
+    auth.set_session_cookies(response, payload.access_token, payload.refresh_token, payload.expires_in)
+    _ensure_profile(db, user)
+    return MeResponse(email=user.email)
+
+
+@app.post("/api/auth/logout")
+def logout(response: Response) -> dict[str, bool]:
+    auth.clear_session_cookies(response)
+    return {"ok": True}
+
+
+@app.get("/api/auth/me", response_model=MeResponse)
+def me(user: auth.AuthUser = Depends(auth.get_current_user)) -> MeResponse:
+    return MeResponse(email=user.email)
+
+
+def _mask(value: str) -> str:
+    if len(value) <= 3:
+        return value
+    return "•" * (len(value) - 3) + value[-3:]
+
+
+def _target_out(target: MonitoredId, db: Session) -> TargetOut:
+    today = date.today()
+    hits = (
+        db.query(Notification)
+        .filter(Notification.monitored_id == target.id)
+        .order_by(Notification.created_at.desc())
+        .all()
+    )
+    return TargetOut(
+        id=target.id,
+        label=target.label,
+        value_masked=_mask(crypto.decrypt_value(target.value_encrypted)),
+        active=target.active,
+        created_at=target.created_at.isoformat(),
+        last_checked_at=target.last_checked_at.isoformat() if target.last_checked_at else None,
+        notifications=[
+            NotificationHitOut(
+                boe_ref=h.boe_ref,
+                expediente=h.expediente,
+                matricula=h.matricula,
+                localidad=h.localidad,
+                importe=float(h.importe) if h.importe is not None else None,
+                fecha=h.fecha,
+                precepto=h.precepto,
+                articulo=h.articulo,
+                plazo_alegacion_fin=h.plazo_alegacion_fin.strftime("%d/%m/%Y") if h.plazo_alegacion_fin else None,
+                dias_restantes=(h.plazo_alegacion_fin - today).days if h.plazo_alegacion_fin else None,
+            )
+            for h in hits
+        ],
+    )
+
+
+@app.get("/api/targets", response_model=list[TargetOut])
+def list_targets(
+    user: auth.AuthUser = Depends(auth.get_current_user), db: Session = Depends(get_db)
+) -> list[TargetOut]:
+    rows = (
+        db.query(MonitoredId).filter(MonitoredId.user_id == user.id).order_by(MonitoredId.created_at.desc()).all()
+    )
+    return [_target_out(row, db) for row in rows]
+
+
+@app.post("/api/targets", response_model=TargetOut, status_code=201)
+def create_target(
+    payload: CreateTargetRequest,
+    user: auth.AuthUser = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+) -> TargetOut:
+    if not payload.consent:
+        raise HTTPException(status_code=400, detail="Consentimiento requerido")
+    try:
+        value = validate_identifier(payload.value)
+    except InvalidIdentifier as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    _ensure_profile(db, user)
+
+    count = db.query(MonitoredId).filter(MonitoredId.user_id == user.id).count()
+    if count >= MAX_TARGETS_PER_USER:
+        raise HTTPException(status_code=400, detail="Has alcanzado el límite de vigilancias de tu cuenta")
+
+    target = MonitoredId(user_id=user.id, value_encrypted=crypto.encrypt_value(value), label=payload.label)
+    db.add(target)
+    db.commit()
+    db.refresh(target)
+    return _target_out(target, db)
+
+
+@app.delete("/api/targets/{target_id}", status_code=204)
+def delete_target(
+    target_id: str, user: auth.AuthUser = Depends(auth.get_current_user), db: Session = Depends(get_db)
+) -> Response:
+    target = db.query(MonitoredId).filter(MonitoredId.id == target_id, MonitoredId.user_id == user.id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="No encontrado")
+    db.delete(target)
+    db.commit()
+    return Response(status_code=204)
 
 
 @app.post("/api/waitlist")
