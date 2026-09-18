@@ -218,6 +218,23 @@
       <div class="field-error" id="loginError"></div>
       <div class="field-ok" id="loginOk">Revisa tu correo — te hemos enviado un enlace de acceso.</div>
     </div>
+
+    <div class="card">
+      <h2>Planes desde 3,99€/mes</h2>
+      <p class="sub">Sin permanencia, cancela cuando quieras. Elige un plan y te mandamos el enlace de acceso — al entrar seguimos directas al pago.</p>
+      <div class="plan-options">
+        <div class="plan-option">
+          <div class="plan-option-name">Individual</div>
+          <div class="plan-option-price">3,99€<span>/mes</span></div>
+          <button class="btn-brand" data-preplan="individual">Suscribirme</button>
+        </div>
+        <div class="plan-option">
+          <div class="plan-option-name">Familiar / empresa</div>
+          <div class="plan-option-price">6,99€<span>/mes</span></div>
+          <button class="btn-accent" data-preplan="familiar">Suscribirme</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="dashboardState" hidden>
@@ -434,7 +451,7 @@
   async function startCheckout(plan, btn){
     const errorEl = document.getElementById('planError');
     hideError(errorEl);
-    btn.disabled = true;
+    if(btn) btn.disabled = true;
     try{
       const resp = await fetch(API_BASE + '/api/billing/checkout', {
         method: 'POST', credentials: 'include',
@@ -448,12 +465,34 @@
       }
       window.location.href = data.url;
     } finally {
-      btn.disabled = false;
+      if(btn) btn.disabled = false;
     }
   }
 
   document.querySelectorAll('[data-subscribe]').forEach(btn => {
     btn.addEventListener('click', () => startCheckout(btn.getAttribute('data-subscribe'), btn));
+  });
+
+  // Not logged in yet but they picked a plan: remember it (localStorage,
+  // not sessionStorage — a magic link is often opened in a new tab, which
+  // wouldn't share a session-scoped value) and reuse the same login
+  // button, so its existing validation/OTP/"revisa tu correo" logic isn't
+  // duplicated. Once they come back logged in, showDashboard picks this
+  // up and sends them straight to Stripe checkout for it.
+  const PENDING_PLAN_KEY = 'vigilamultas_pending_plan';
+  document.querySelectorAll('[data-preplan]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const emailInput = document.getElementById('loginEmail');
+      const errorEl = document.getElementById('loginError');
+      hideError(errorEl);
+      if(!emailInput.value.trim() || !emailInput.value.includes('@')){
+        showError(errorEl, 'Escribe tu email arriba para suscribirte');
+        emailInput.focus();
+        return;
+      }
+      localStorage.setItem(PENDING_PLAN_KEY, btn.getAttribute('data-preplan'));
+      document.getElementById('loginBtn').click();
+    });
   });
 
   document.getElementById('menuBillingBtn').addEventListener('click', async () => {
@@ -514,6 +553,12 @@
     document.getElementById('accountEmail').textContent = me.email;
     renderPlan(me);
     loadTargets();
+
+    const pendingPlan = localStorage.getItem(PENDING_PLAN_KEY);
+    if(pendingPlan){
+      localStorage.removeItem(PENDING_PLAN_KEY);
+      if(me.max_targets === 0) startCheckout(pendingPlan, null);
+    }
   }
 
   // After a Stripe checkout redirect, the webhook that actually activates
@@ -527,10 +572,11 @@
     }
   }
 
-  function showLogin(){
+  function showLogin(prefillEmail){
     document.getElementById('loadingState').hidden = true;
     document.getElementById('dashboardState').hidden = true;
     document.getElementById('loginState').hidden = false;
+    if(prefillEmail) document.getElementById('loginEmail').value = prefillEmail;
   }
 
   document.getElementById('loginBtn').addEventListener('click', async () => {
@@ -610,8 +656,10 @@
   });
 
   async function init(){
-    const billingParam = new URLSearchParams(window.location.search).get('billing');
-    if(billingParam){
+    const urlParams = new URLSearchParams(window.location.search);
+    const billingParam = urlParams.get('billing');
+    const emailParam = urlParams.get('email');
+    if(billingParam || emailParam){
       history.replaceState(null, '', window.location.pathname);
     }
 
@@ -623,7 +671,7 @@
     }
     const me = await fetchMe();
     if(me){ showDashboard(me); if(billingParam === 'success') pollPlanAfterCheckout(); return; }
-    showLogin();
+    showLogin(emailParam);
   }
 
   init();

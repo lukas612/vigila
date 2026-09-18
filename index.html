@@ -534,7 +534,7 @@
           <li>Te avisamos por email en cuanto aparezca algo a tu nombre</li>
           <li>Nunca más tienes que volver a comprobarlo tú</li>
         </ul>
-        <p>Actívate para que te avisemos automáticamente si aparece algo nuevo, desde 3,99€/mes.</p>
+        <p>Actívate para que te avisemos automáticamente si aparece algo nuevo, desde <b>3,99€/mes</b>.</p>
         <div class="email-row">
           <input type="email" id="emailInput" placeholder="tu@email.com">
           <button class="btn-brand" id="emailBtnOk">Activar aviso automático</button>
@@ -580,7 +580,7 @@
           <li>Te avisamos por email de cualquier notificación nueva</li>
           <li>No se te vuelve a pasar un plazo de alegación</li>
         </ul>
-        <p>Suscríbete para que vigilemos este DNI o matrícula automáticamente y te avisemos antes de que venza el plazo.</p>
+        <p>Suscríbete desde <b>3,99€/mes</b> para que vigilemos este DNI o matrícula automáticamente y te avisemos antes de que venza el plazo.</p>
         <div class="email-row">
           <input type="email" id="emailInput" placeholder="tu@email.com">
           <button class="btn-accent" id="emailBtnAlert">Suscribirme por 3,99€/mes</button>
@@ -612,6 +612,12 @@
       }catch(e){ /* best-effort: still show confirmation, we don't want to punish the user for a network blip */ }
       c.classList.add('show');
       b.textContent = 'Hecho';
+      // Send them straight to the account page instead of leaving them
+      // here — that's where the real plans and the login (magic link) to
+      // actually subscribe live, not just an email left in the waitlist.
+      setTimeout(function(){
+        window.location.href = 'cuenta.html?email=' + encodeURIComponent(val);
+      }, 900);
     });
   }
 
