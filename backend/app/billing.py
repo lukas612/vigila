@@ -23,6 +23,12 @@ logger = logging.getLogger("vigila")
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 
+# The billing_portal.configuration that lets a customer switch between the
+# Individual/Familiar prices (upgrade/downgrade), not just cancel or update
+# a payment method — that has to be created once (see the "Billing (Stripe)"
+# README section) since the portal's default config is cancel-only.
+STRIPE_PORTAL_CONFIGURATION_ID = os.environ.get("STRIPE_PORTAL_CONFIGURATION_ID", "")
+
 # price -> plan, both directions. A plan with no price id configured just
 # can't be checked out (create_checkout_session raises), which is a config
 # problem to fix in the environment, not something to fall back silently on.
@@ -109,7 +115,10 @@ def create_checkout_session(user: User, plan: Plan, success_url: str, cancel_url
 
 
 def create_portal_session(customer_id: str, return_url: str) -> str:
-    session = _request("POST", "/billing_portal/sessions", customer=customer_id, return_url=return_url)
+    params = {"customer": customer_id, "return_url": return_url}
+    if STRIPE_PORTAL_CONFIGURATION_ID:
+        params["configuration"] = STRIPE_PORTAL_CONFIGURATION_ID
+    session = _request("POST", "/billing_portal/sessions", **params)
     return session["url"]
 
 

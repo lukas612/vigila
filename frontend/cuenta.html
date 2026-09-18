@@ -112,6 +112,20 @@
   .account-email{ font-size:14px; color: var(--ink-soft); }
   .account-email b{ color: var(--ink); }
 
+  .account-menu-wrap{ position:relative; }
+  .account-menu{
+    position:absolute; right:0; top:calc(100% + 6px); min-width:230px;
+    background: var(--paper); border:1px solid var(--line); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm); overflow:hidden; z-index:60;
+  }
+  .account-menu-item{
+    display:block; width:100%; text-align:left; background:none; border:none;
+    padding:12px 16px; font-size:14px; font-weight:600; color: var(--ink); cursor:pointer; border-radius:0;
+  }
+  .account-menu-item:hover{ background: var(--surface); }
+  .account-menu-item.alert{ color: var(--alert); }
+  .account-menu-item:disabled{ opacity:0.6; cursor:default; background:none; }
+
   .target{ border:1px solid var(--line); border-radius: var(--radius-sm); padding:16px 18px; margin-bottom:12px; }
   .target-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .target-name{ font-weight:700; font-size:15px; }
@@ -210,16 +224,21 @@
     <div class="card">
       <div class="account-bar">
         <div class="account-email">Sesión iniciada como <b id="accountEmail"></b></div>
-        <button class="btn-ghost" id="logoutBtn">Cerrar sesión</button>
+        <div class="account-menu-wrap">
+          <button class="btn-ghost" id="accountMenuBtn" aria-haspopup="true" aria-expanded="false">Mi cuenta ▾</button>
+          <div class="account-menu" id="accountMenu" hidden>
+            <button class="account-menu-item" id="menuBillingBtn" hidden>Facturación y suscripción</button>
+            <button class="account-menu-item alert" id="logoutBtn">Cerrar sesión</button>
+          </div>
+        </div>
       </div>
     </div>
 
     <div class="card">
       <h2>Mi plan</h2>
-      <p class="sub">Necesitas una suscripción activa para vigilar DNI/NIE/matrículas.</p>
+      <p class="sub">Necesitas una suscripción activa para vigilar DNI/NIE/matrículas. Gestiona el pago, cambia de plan o descarga tus facturas desde <b>Mi cuenta → Facturación y suscripción</b>.</p>
       <div class="plan-status">
         <div class="plan-status-text" id="planStatusText"></div>
-        <button class="btn-link" id="managePlanBtn" hidden>Gestionar suscripción</button>
       </div>
       <div class="plan-options" id="planOptions" hidden>
         <div class="plan-option">
@@ -379,7 +398,7 @@
     currentMe = me;
     const statusText = document.getElementById('planStatusText');
     const options = document.getElementById('planOptions');
-    const manageBtn = document.getElementById('managePlanBtn');
+    const menuBillingBtn = document.getElementById('menuBillingBtn');
     const badgeClass = ['active', 'trialing'].includes(me.subscription_status) ? 'active' : me.subscription_status;
     const badge = `<span class="plan-badge ${badgeClass}">${STATUS_LABELS[me.subscription_status] || me.subscription_status}</span>`;
     if(me.plan){
@@ -388,8 +407,29 @@
       statusText.innerHTML = `Sin suscripción activa${badge}`;
     }
     options.hidden = me.max_targets > 0;
-    manageBtn.hidden = !me.plan;
+    menuBillingBtn.hidden = !me.plan;
   }
+
+  const accountMenuBtn = document.getElementById('accountMenuBtn');
+  const accountMenu = document.getElementById('accountMenu');
+
+  function closeAccountMenu(){
+    accountMenu.hidden = true;
+    accountMenuBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  accountMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = accountMenu.hidden;
+    accountMenu.hidden = !willOpen;
+    accountMenuBtn.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.addEventListener('click', (e) => {
+    if(!accountMenu.hidden && !accountMenu.contains(e.target) && e.target !== accountMenuBtn) closeAccountMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') closeAccountMenu();
+  });
 
   async function startCheckout(plan, btn){
     const errorEl = document.getElementById('planError');
@@ -416,21 +456,24 @@
     btn.addEventListener('click', () => startCheckout(btn.getAttribute('data-subscribe'), btn));
   });
 
-  document.getElementById('managePlanBtn').addEventListener('click', async () => {
+  document.getElementById('menuBillingBtn').addEventListener('click', async () => {
     const errorEl = document.getElementById('planError');
     hideError(errorEl);
-    const btn = document.getElementById('managePlanBtn');
+    const btn = document.getElementById('menuBillingBtn');
     btn.disabled = true;
+    btn.textContent = 'Abriendo…';
     try{
       const resp = await fetch(API_BASE + '/api/billing/portal', { method: 'POST', credentials: 'include' });
       const data = await resp.json().catch(() => ({}));
       if(!resp.ok || !data.url){
+        closeAccountMenu();
         showError(errorEl, data.detail || 'No se pudo abrir el panel de facturación.');
         return;
       }
       window.location.href = data.url;
     } finally {
       btn.disabled = false;
+      btn.textContent = 'Facturación y suscripción';
     }
   });
 

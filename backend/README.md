@@ -230,7 +230,19 @@ portal, and one webhook.
   frontend to redirect to.
 - **`POST /api/billing/portal`** (authenticated): creates a Stripe Billing
   Portal session for a user who already has a `stripe_customer_id`, so they
-  can update payment details or cancel without us building any of that UI.
+  can update payment details, cancel, **switch between Individual and
+  Familiar (upgrade/downgrade)**, or view/download invoices without us
+  building any of that UI. Plan switching needs a
+  `billing_portal.configuration` with `subscription_update` enabled and
+  both prices listed — Stripe's own default configuration is
+  cancel/payment-method-only. One was created via `POST
+  /v1/billing_portal/configurations` (became the account's default
+  automatically, since it was the first) and its id also set as
+  `STRIPE_PORTAL_CONFIGURATION_ID` so `create_portal_session` references it
+  explicitly rather than relying on whatever's marked default. A plan
+  switch there fires the same `customer.subscription.updated` webhook as
+  any other subscription change, so `billing.apply_event` picks up the new
+  plan the normal way — no separate handling needed.
 - **`POST /api/billing/webhook`**: Stripe calls this on
   `checkout.session.completed`, `customer.subscription.updated` and
   `customer.subscription.deleted`. The raw request body is verified against
