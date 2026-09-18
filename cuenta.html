@@ -186,6 +186,7 @@
     padding:20px 16px 16px; text-align:center; display:flex; flex-direction:column;
   }
   .plan-option.featured{ border-color: var(--accent); box-shadow: var(--shadow-sm); }
+  .plan-option.plan-preselected{ border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-light); }
   .plan-option-ribbon{
     position:absolute; top:-11px; left:50%; transform:translateX(-50%);
     background: var(--accent); color:#2A1B00; font-size:10.5px; font-weight:700;
@@ -452,7 +453,7 @@
 <script>
   // This copy is served from GitHub Pages (a static host), so it always
   // needs the API's own origin — unlike the local dev copy under
-  // frontend/cuenta.html, which is served by the FastAPI app itself and
+  // frontend/index.html, which is served by the FastAPI app itself and
   // can safely default to same-origin.
   window.VIGILA_API_BASE = window.VIGILA_API_BASE || 'https://api.vigilamultas.com';
 </script>
@@ -791,6 +792,13 @@
     document.getElementById('dashboardState').hidden = true;
     document.getElementById('loginState').hidden = false;
     if(prefillEmail) document.getElementById('loginEmail').value = prefillEmail;
+
+    const pendingPlan = localStorage.getItem(PENDING_PLAN_KEY);
+    if(pendingPlan){
+      const opt = document.querySelector('.plan-option[data-preplan="' + pendingPlan + '"]');
+      if(opt) opt.classList.add('plan-preselected');
+      document.getElementById('loginBtn').textContent = 'Enviar enlace y continuar al pago';
+    }
   }
 
   document.getElementById('loginBtn').addEventListener('click', async () => {
@@ -876,7 +884,15 @@
     const urlParams = new URLSearchParams(window.location.search);
     const billingParam = urlParams.get('billing');
     const emailParam = urlParams.get('email');
-    if(billingParam || emailParam){
+    const planParam = urlParams.get('plan');
+    // Arriving with ?plan=... (from the free-check result CTAs on the
+    // landing page) reuses the same pending-plan mechanism as clicking a
+    // [data-preplan] button here directly — showDashboard() picks it up
+    // and continues straight to Stripe checkout right after login.
+    if(planParam === 'individual' || planParam === 'familiar'){
+      localStorage.setItem(PENDING_PLAN_KEY, planParam);
+    }
+    if(billingParam || emailParam || planParam){
       history.replaceState(null, '', window.location.pathname);
     }
 

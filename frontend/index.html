@@ -280,6 +280,24 @@
   .plan-cta input:focus{ outline:none; border-color: var(--brand); background: var(--paper); }
   .plan-confirm{ font-size:13px; }
 
+  .result-plans{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin:16px 0 4px; }
+  .result-plan{
+    background: var(--surface); border:1.5px solid var(--line); border-radius: var(--radius-sm);
+    padding:16px; text-align:center; position:relative; display:flex; flex-direction:column;
+  }
+  .result-plan.featured{ border-color: var(--accent); background: var(--paper); box-shadow: var(--shadow-sm); }
+  .result-plan-ribbon{
+    position:absolute; top:-10px; left:50%; transform:translateX(-50%);
+    background: var(--accent); color:#2A1B00; font-size:10.5px; font-weight:700;
+    padding:3px 10px; border-radius:20px; white-space:nowrap;
+  }
+  .result-plan-name{ font-weight:700; font-size:14px; }
+  .result-plan-price{ font-family: var(--font-head); font-weight:800; font-size:22px; color: var(--brand); margin:6px 0 2px; }
+  .result-plan-price span{ font-size:12px; font-weight:600; color: var(--ink-faint); }
+  .result-plan-sub{ font-size:12px; color: var(--ink-faint); margin-bottom:12px; }
+  .result-plan button{ width:100%; margin-top:auto; }
+  @media (max-width: 480px){ .result-plans{ grid-template-columns: 1fr; } }
+
   section.cta-band{
     background: var(--accent); text-align:center; padding: 46px 0; margin-top: 20px;
   }
@@ -729,21 +747,26 @@
           <li>Te avisamos por email en cuanto aparezca algo a tu nombre</li>
           <li>Nunca más tienes que volver a comprobarlo tú</li>
         </ul>
-        <p>Actívate para que te avisemos automáticamente si aparece algo nuevo, desde <b>3,99€/mes</b>. Sin permanencia, cancela cuando quieras.</p>
-        <div class="email-row">
-          <input type="email" id="emailInput" placeholder="tu@email.com">
-          <button class="btn-brand" id="emailBtnOk">Activar aviso automático</button>
+        <p>Actívate para que te avisemos automáticamente si aparece algo nuevo. Sin permanencia, cancela cuando quieras.</p>
+        <div class="result-plans">
+          <div class="result-plan">
+            <div class="result-plan-name">Individual</div>
+            <div class="result-plan-price">3,99€<span>/mes</span></div>
+            <div class="result-plan-sub">1 DNI, NIE o matrícula</div>
+            <button class="btn-brand result-plan-btn" data-plan="individual">Suscribirme</button>
+          </div>
+          <div class="result-plan featured">
+            <div class="result-plan-ribbon">Recomendado</div>
+            <div class="result-plan-name">Familiar</div>
+            <div class="result-plan-price">6,99€<span>/mes</span></div>
+            <div class="result-plan-sub">Hasta 5 DNIs, NIEs o matrículas</div>
+            <button class="btn-accent result-plan-btn" data-plan="familiar">Suscribirme</button>
+          </div>
         </div>
-        <label class="consent-row">
-          <input type="checkbox" id="privacyOk">
-          <span>Acepto la <a href="privacidad.html" target="_blank" rel="noopener" style="text-decoration:underline;">política de privacidad</a>.</span>
-        </label>
-        <div class="field-error" id="emailErrorOk"></div>
-        <div class="confirm" id="confirmOk">Listo — te avisaremos en cuanto haya novedades.</div>
-        <p style="margin:10px 0 0;"><a href="#planes" style="color:var(--brand);font-weight:600;text-decoration:underline;font-size:13.5px;">Ver planes y precios</a></p>
+        <p style="margin:10px 0 0;text-align:center;"><a href="#planes" style="color:var(--brand);font-weight:600;text-decoration:underline;font-size:13.5px;">Comparar todos los detalles de los planes</a></p>
       </div>
     `;
-    wireEmail('emailBtnOk', 'confirmOk', 'ok');
+    wireResultPlanButtons('ok');
   }
 
   function plazoRow(n){
@@ -781,58 +804,43 @@
           <li>Te avisamos por email de cualquier notificación nueva</li>
           <li>No se te vuelve a pasar un plazo de alegación</li>
         </ul>
-        <p>Suscríbete desde <b>3,99€/mes</b> para que vigilemos este DNI o matrícula automáticamente y te avisemos antes de que venza el plazo. Sin permanencia, cancela cuando quieras.</p>
-        <div class="email-row">
-          <input type="email" id="emailInput" placeholder="tu@email.com">
-          <button class="btn-accent" id="emailBtnAlert">Suscribirme por 3,99€/mes</button>
+        <p>Suscríbete ahora para que vigilemos este DNI o matrícula automáticamente y te avisemos antes de que venza el plazo. Sin permanencia, cancela cuando quieras.</p>
+        <div class="result-plans">
+          <div class="result-plan">
+            <div class="result-plan-name">Individual</div>
+            <div class="result-plan-price">3,99€<span>/mes</span></div>
+            <div class="result-plan-sub">1 DNI, NIE o matrícula</div>
+            <button class="btn-brand result-plan-btn" data-plan="individual">Suscribirme</button>
+          </div>
+          <div class="result-plan featured">
+            <div class="result-plan-ribbon">Recomendado</div>
+            <div class="result-plan-name">Familiar</div>
+            <div class="result-plan-price">6,99€<span>/mes</span></div>
+            <div class="result-plan-sub">Hasta 5 DNIs, NIEs o matrículas</div>
+            <button class="btn-accent result-plan-btn" data-plan="familiar">Suscribirme</button>
+          </div>
         </div>
-        <label class="consent-row">
-          <input type="checkbox" id="privacyAlert">
-          <span>Acepto la <a href="privacidad.html" target="_blank" rel="noopener" style="text-decoration:underline;">política de privacidad</a>.</span>
-        </label>
-        <div class="field-error" id="emailErrorAlert"></div>
-        <div class="confirm" id="confirmAlert">Gracias — te escribiremos para completar el alta.</div>
-        <p style="margin:10px 0 0;"><a href="#planes" style="color:var(--brand);font-weight:600;text-decoration:underline;font-size:13.5px;">Ver planes y precios</a></p>
+        <p style="margin:10px 0 0;text-align:center;"><a href="#planes" style="color:var(--brand);font-weight:600;text-decoration:underline;font-size:13.5px;">Comparar todos los detalles de los planes</a></p>
       </div>
     `;
-    wireEmail('emailBtnAlert', 'confirmAlert', 'alert');
+    wireResultPlanButtons('alert');
   }
 
   function renderError(msg){
     inner.innerHTML = `<div class="result-body">${escapeHtml(msg)}</div>`;
   }
 
-  function wireEmail(btnId, confirmId, context){
-    const b = document.getElementById(btnId);
-    const c = document.getElementById(confirmId);
-    const suffix = context.charAt(0).toUpperCase() + context.slice(1);
-    const privacyCheckbox = document.getElementById('privacy' + suffix);
-    const errorEl = document.getElementById('emailError' + suffix);
-    b.addEventListener('click', async function(){
-      if(errorEl) errorEl.classList.remove('show');
-      const val = document.getElementById('emailInput').value.trim();
-      if(!val || !val.includes('@')) return;
-      if(privacyCheckbox && !privacyCheckbox.checked){
-        if(errorEl){ errorEl.textContent = 'Tienes que aceptar la política de privacidad.'; errorEl.classList.add('show'); }
-        return;
-      }
-      gaEvent('lead_email_submit', { context });
-      b.disabled = true;
-      try{
-        await fetch(API_BASE + '/api/waitlist', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({email: val, context: context})
-        });
-      }catch(e){ /* best-effort: still show confirmation, we don't want to punish the user for a network blip */ }
-      c.classList.add('show');
-      b.textContent = 'Hecho';
-      // Send them straight to the account page instead of leaving them
-      // here — that's where the real plans and the login (magic link) to
-      // actually subscribe live, not just an email left in the waitlist.
-      setTimeout(function(){
-        window.location.href = 'cuenta.html?email=' + encodeURIComponent(val);
-      }, 900);
+  // The result CTA buttons link straight to cuenta.html with the chosen
+  // plan — cuenta.html's own pending-plan mechanism (see PENDING_PLAN_KEY)
+  // picks up ?plan=... and continues straight to Stripe checkout right
+  // after login, so there's no separate email-capture step here anymore.
+  function wireResultPlanButtons(context){
+    document.querySelectorAll('.result-plan-btn').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const plan = btn.dataset.plan;
+        gaEvent('select_plan', { plan, method: 'result_cta', page: 'home', logged_in: false, context });
+        window.location.href = 'cuenta.html?plan=' + encodeURIComponent(plan);
+      });
     });
   }
 
