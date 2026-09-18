@@ -39,6 +39,10 @@ app = FastAPI(title="Vigila API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "https://vigilamultas.com",
+        "https://www.vigilamultas.com",
+        # Old GitHub Pages URL — kept working during the move to the
+        # custom domain rather than cut off immediately.
         "https://lukas612.github.io",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
