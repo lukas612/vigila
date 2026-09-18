@@ -45,6 +45,8 @@ class DailyStatsResponse(BaseModel):
     stat_date: str = Field(..., description="Fecha de los datos, AAAA-MM-DD")
     total_expedientes: int
     total_importe: float
+    total_con_dni: int = Field(0, description="Expedientes con un DNI/NIE identificado")
+    total_con_matricula: int = Field(0, description="Expedientes con una matrícula identificada")
     localidades: list[LocalityStat]
 
 
@@ -54,6 +56,8 @@ class WeeklyStatsResponse(BaseModel):
     days_included: list[str] = Field(..., description="Días con crawl que entran en la ventana, AAAA-MM-DD")
     total_expedientes: int
     total_importe: float
+    total_con_dni: int = Field(0, description="Expedientes con un DNI/NIE identificado")
+    total_con_matricula: int = Field(0, description="Expedientes con una matrícula identificada")
     localidades: list[LocalityStat]
 
 

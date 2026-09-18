@@ -153,7 +153,26 @@ class DailyStat(Base):
     localidad: Mapped[str] = mapped_column(String(120), nullable=False)
     expedientes_count: Mapped[int] = mapped_column(Integer, nullable=False)
     importe_total: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
+    # How many of this locality's expedientes that day carried a DNI/NIE vs
+    # a matrícula (a row can have neither, either, or both — see
+    # pdf_parser.NotificationRow) — still aggregate-only, this is just a
+    # count, never the identifiers themselves.
+    con_dni_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    con_matricula_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+
+class StatsSummary(Base):
+    """Precomputed response bodies for the hot stats endpoints
+    (/api/stats/weekly and /api/stats/latest with no query params),
+    refreshed once by the daily crawl instead of re-aggregating every row
+    in daily_stats on every single page visit. See app/stats.py."""
+
+    __tablename__ = "stats_summary"
+
+    key: Mapped[str] = mapped_column(String(40), primary_key=True)  # "weekly" | "daily_latest"
+    payload: Mapped[str] = mapped_column(Text, nullable=False)  # JSON-encoded response body
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 
 class NotificationRun(Base):

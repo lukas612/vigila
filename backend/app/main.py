@@ -1,25 +1,24 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import date
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from . import auth, check_service, crypto
+from . import auth, check_service, crypto, stats
 from .db import get_db, init_db
-from .models import CheckFree, CheckResultEnum, DailyStat, MonitoredId, Notification, User, WaitlistSignup
+from .models import CheckFree, CheckResultEnum, DailyStat, MonitoredId, Notification, StatsSummary, User, WaitlistSignup
 from .rate_limit import RateLimiter, hash_identifier
 from .schemas import (
     CheckRequest,
     CheckResponse,
     CreateTargetRequest,
     DailyStatsResponse,
-    LocalityStat,
     MeResponse,
     NotificationHitOut,
     NotificationOut,
@@ -128,6 +127,11 @@ def stats_dates(db: Session = Depends(get_db)) -> list[str]:
     return [r[0].isoformat() for r in rows]
 
 
+def _cached_summary(db: Session, key: str) -> dict | None:
+    row = db.query(StatsSummary).filter(StatsSummary.key == key).first()
+    return json.loads(row.payload) if row else None
+
+
 @app.get("/api/stats/latest", response_model=DailyStatsResponse)
 def stats_latest(
     stat_date: str | None = Query(None, alias="date", description="AAAA-MM-DD; por defecto el día más reciente"),
@@ -136,7 +140,18 @@ def stats_latest(
     """Aggregate-only: counts and totals per locality for a given day (or the
     most recent one a background crawl has stored — see
     scripts/crawl_daily_stats.py). Never exposes anything at the level of an
-    individual expediente or DNI."""
+    individual expediente or DNI.
+
+    With no `date` (the common case — the landing page's hook always wants
+    "the latest day"), this serves a precomputed row the crawl already
+    wrote to `stats_summary` instead of re-aggregating `daily_stats` on
+    every visit. A specific `date` always computes live — that path is
+    rare enough it doesn't need caching."""
+    if not stat_date:
+        cached = _cached_summary(db, "daily_latest")
+        if cached:
+            return DailyStatsResponse(**cached)
+
     if stat_date:
         try:
             target_date = date.fromisoformat(stat_date)
@@ -147,24 +162,10 @@ def stats_latest(
         if target_date is None:
             raise HTTPException(status_code=404, detail="Todavía no hay datos agregados disponibles")
 
-    rows = (
-        db.query(DailyStat)
-        .filter(DailyStat.stat_date == target_date)
-        .order_by(DailyStat.expedientes_count.desc())
-        .all()
-    )
-    if not rows:
+    payload = stats.compute_daily(db, target_date)
+    if payload is None:
         raise HTTPException(status_code=404, detail="No hay datos agregados para esa fecha")
-
-    return DailyStatsResponse(
-        stat_date=target_date.isoformat(),
-        total_expedientes=sum(r.expedientes_count for r in rows),
-        total_importe=sum(float(r.importe_total or 0) for r in rows),
-        localidades=[
-            LocalityStat(localidad=r.localidad, expedientes_count=r.expedientes_count, importe_total=r.importe_total)
-            for r in rows
-        ],
-    )
+    return DailyStatsResponse(**payload)
 
 
 @app.get("/api/stats/weekly", response_model=WeeklyStatsResponse)
@@ -176,36 +177,20 @@ def stats_weekly(
     have a stored crawl. Smooths out day-to-day noise (weekends with zero
     bulletins, an occasional backlog dump) for display — the underlying daily
     rows in `daily_stats` are untouched, so single-day drilldown (see
-    /api/stats/latest) and future re-slicing stay possible."""
-    window_dates = [
-        r[0]
-        for r in db.query(DailyStat.stat_date).distinct().order_by(DailyStat.stat_date.desc()).limit(days).all()
-    ]
-    if not window_dates:
+    /api/stats/latest) and future re-slicing stay possible.
+
+    The default (`days=7`, what both the landing page and Estadísticas
+    call) is served from the `stats_summary` cache the crawl precomputes;
+    any other window size falls back to a live query."""
+    if days == 7:
+        cached = _cached_summary(db, "weekly")
+        if cached:
+            return WeeklyStatsResponse(**cached)
+
+    payload = stats.compute_weekly(db, days)
+    if payload is None:
         raise HTTPException(status_code=404, detail="Todavía no hay datos agregados disponibles")
-
-    rows = (
-        db.query(
-            DailyStat.localidad,
-            func.sum(DailyStat.expedientes_count).label("count"),
-            func.sum(DailyStat.importe_total).label("importe"),
-        )
-        .filter(DailyStat.stat_date.in_(window_dates))
-        .group_by(DailyStat.localidad)
-        .order_by(func.sum(DailyStat.expedientes_count).desc())
-        .all()
-    )
-
-    return WeeklyStatsResponse(
-        date_from=min(window_dates).isoformat(),
-        date_to=max(window_dates).isoformat(),
-        days_included=[d.isoformat() for d in sorted(window_dates, reverse=True)],
-        total_expedientes=sum(r.count for r in rows),
-        total_importe=sum(float(r.importe or 0) for r in rows),
-        localidades=[
-            LocalityStat(localidad=r.localidad, expedientes_count=r.count, importe_total=r.importe) for r in rows
-        ],
-    )
+    return WeeklyStatsResponse(**payload)
 
 
 def _ensure_profile(db: Session, user: auth.AuthUser) -> None:
