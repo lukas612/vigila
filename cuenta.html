@@ -112,6 +112,20 @@
   .account-email{ font-size:14px; color: var(--ink-soft); }
   .account-email b{ color: var(--ink); }
 
+  .account-menu-wrap{ position:relative; }
+  .account-menu{
+    position:absolute; right:0; top:calc(100% + 6px); min-width:230px;
+    background: var(--paper); border:1px solid var(--line); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm); overflow:hidden; z-index:60;
+  }
+  .account-menu-item{
+    display:block; width:100%; text-align:left; background:none; border:none;
+    padding:12px 16px; font-size:14px; font-weight:600; color: var(--ink); cursor:pointer; border-radius:0;
+  }
+  .account-menu-item:hover{ background: var(--surface); }
+  .account-menu-item.alert{ color: var(--alert); }
+  .account-menu-item:disabled{ opacity:0.6; cursor:default; background:none; }
+
   .target{ border:1px solid var(--line); border-radius: var(--radius-sm); padding:16px 18px; margin-bottom:12px; }
   .target-top{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
   .target-name{ font-weight:700; font-size:15px; }
@@ -130,6 +144,21 @@
   .hits-details{ margin-top:12px; }
   .hits-summary{ cursor:pointer; font-weight:700; font-size:13.5px; padding:6px 0; }
   .hits-summary.alert{ color: var(--alert); }
+
+  .plan-status{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .plan-status-text{ font-size:14px; color: var(--ink-soft); }
+  .plan-status-text b{ color: var(--ink); }
+  .plan-badge{ display:inline-block; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; margin-left:6px; vertical-align:1px; }
+  .plan-badge.active{ background: var(--ok-soft); color: var(--ok); }
+  .plan-badge.none{ background: var(--surface); color: var(--ink-faint); }
+  .plan-badge.past_due, .plan-badge.canceled{ background: var(--alert-soft); color: var(--alert); }
+  .plan-options{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:18px; }
+  .plan-option{ border:1px solid var(--line); border-radius: var(--radius-sm); padding:16px; text-align:center; }
+  .plan-option-name{ font-weight:700; font-size:14.5px; }
+  .plan-option-price{ font-family: var(--font-head); font-weight:800; font-size:22px; color: var(--brand); margin:6px 0 12px; }
+  .plan-option-price span{ font-size:12px; font-weight:600; color: var(--ink-faint); }
+  .plan-option button{ width:100%; }
+  @media (max-width: 480px){ .plan-options{ grid-template-columns: 1fr; } }
 
   .empty-targets{ text-align:center; color: var(--ink-faint); font-size:14px; padding:20px 0; }
 
@@ -195,8 +224,35 @@
     <div class="card">
       <div class="account-bar">
         <div class="account-email">Sesión iniciada como <b id="accountEmail"></b></div>
-        <button class="btn-ghost" id="logoutBtn">Cerrar sesión</button>
+        <div class="account-menu-wrap">
+          <button class="btn-ghost" id="accountMenuBtn" aria-haspopup="true" aria-expanded="false">Mi cuenta ▾</button>
+          <div class="account-menu" id="accountMenu" hidden>
+            <button class="account-menu-item" id="menuBillingBtn" hidden>Facturación y suscripción</button>
+            <button class="account-menu-item alert" id="logoutBtn">Cerrar sesión</button>
+          </div>
+        </div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Mi plan</h2>
+      <p class="sub">Necesitas una suscripción activa para vigilar DNI/NIE/matrículas. Gestiona el pago, cambia de plan o descarga tus facturas desde <b>Mi cuenta → Facturación y suscripción</b>.</p>
+      <div class="plan-status">
+        <div class="plan-status-text" id="planStatusText"></div>
+      </div>
+      <div class="plan-options" id="planOptions" hidden>
+        <div class="plan-option">
+          <div class="plan-option-name">Individual</div>
+          <div class="plan-option-price">3,99€<span>/mes</span></div>
+          <button class="btn-brand" data-subscribe="individual">Suscribirme</button>
+        </div>
+        <div class="plan-option">
+          <div class="plan-option-name">Familiar / empresa</div>
+          <div class="plan-option-price">6,99€<span>/mes</span></div>
+          <button class="btn-accent" data-subscribe="familiar">Suscribirme</button>
+        </div>
+      </div>
+      <div class="field-error" id="planError"></div>
     </div>
 
     <div class="card">
@@ -338,6 +394,96 @@
     `;
   }
 
+  let currentMe = null;
+
+  const PLAN_LABELS = { individual: 'Individual', familiar: 'Familiar' };
+  const STATUS_LABELS = {
+    active: 'Activo', trialing: 'Prueba', past_due: 'Pago pendiente', canceled: 'Cancelado', none: 'Sin plan',
+  };
+
+  function renderPlan(me){
+    currentMe = me;
+    const statusText = document.getElementById('planStatusText');
+    const options = document.getElementById('planOptions');
+    const menuBillingBtn = document.getElementById('menuBillingBtn');
+    const badgeClass = ['active', 'trialing'].includes(me.subscription_status) ? 'active' : me.subscription_status;
+    const badge = `<span class="plan-badge ${badgeClass}">${STATUS_LABELS[me.subscription_status] || me.subscription_status}</span>`;
+    if(me.plan){
+      statusText.innerHTML = `Plan <b>${PLAN_LABELS[me.plan] || me.plan}</b>${badge} — hasta ${me.max_targets} vigilancia${me.max_targets === 1 ? '' : 's'}`;
+    } else {
+      statusText.innerHTML = `Sin suscripción activa${badge}`;
+    }
+    options.hidden = me.max_targets > 0;
+    menuBillingBtn.hidden = !me.plan;
+  }
+
+  const accountMenuBtn = document.getElementById('accountMenuBtn');
+  const accountMenu = document.getElementById('accountMenu');
+
+  function closeAccountMenu(){
+    accountMenu.hidden = true;
+    accountMenuBtn.setAttribute('aria-expanded', 'false');
+  }
+
+  accountMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const willOpen = accountMenu.hidden;
+    accountMenu.hidden = !willOpen;
+    accountMenuBtn.setAttribute('aria-expanded', String(willOpen));
+  });
+  document.addEventListener('click', (e) => {
+    if(!accountMenu.hidden && !accountMenu.contains(e.target) && e.target !== accountMenuBtn) closeAccountMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape') closeAccountMenu();
+  });
+
+  async function startCheckout(plan, btn){
+    const errorEl = document.getElementById('planError');
+    hideError(errorEl);
+    btn.disabled = true;
+    try{
+      const resp = await fetch(API_BASE + '/api/billing/checkout', {
+        method: 'POST', credentials: 'include',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ plan }),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if(!resp.ok || !data.url){
+        showError(errorEl, data.detail || 'No se pudo iniciar el pago. Inténtalo de nuevo.');
+        return;
+      }
+      window.location.href = data.url;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.querySelectorAll('[data-subscribe]').forEach(btn => {
+    btn.addEventListener('click', () => startCheckout(btn.getAttribute('data-subscribe'), btn));
+  });
+
+  document.getElementById('menuBillingBtn').addEventListener('click', async () => {
+    const errorEl = document.getElementById('planError');
+    hideError(errorEl);
+    const btn = document.getElementById('menuBillingBtn');
+    btn.disabled = true;
+    btn.textContent = 'Abriendo…';
+    try{
+      const resp = await fetch(API_BASE + '/api/billing/portal', { method: 'POST', credentials: 'include' });
+      const data = await resp.json().catch(() => ({}));
+      if(!resp.ok || !data.url){
+        closeAccountMenu();
+        showError(errorEl, data.detail || 'No se pudo abrir el panel de facturación.');
+        return;
+      }
+      window.location.href = data.url;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Facturación y suscripción';
+    }
+  });
+
   async function loadTargets(){
     const resp = await fetch(API_BASE + '/api/targets', { credentials: 'include' });
     if(!resp.ok) return;
@@ -345,9 +491,10 @@
     const list = document.getElementById('targetsList');
     const empty = document.getElementById('emptyTargets');
     const sub = document.getElementById('targetsSub');
-    sub.textContent = targets.length
-      ? `${targets.length} de 5 vigilancias usadas`
-      : 'Aún no has añadido ninguna.';
+    const max = currentMe ? currentMe.max_targets : 0;
+    sub.textContent = max
+      ? `${targets.length} de ${max} vigilancias usadas`
+      : (targets.length ? `${targets.length} vigilancia(s) — suscríbete para añadir más` : 'Suscríbete a un plan para empezar a vigilar.');
     if(!targets.length){
       list.innerHTML = '';
       empty.hidden = false;
@@ -367,12 +514,24 @@
     });
   }
 
-  function showDashboard(email){
+  function showDashboard(me){
     document.getElementById('loadingState').hidden = true;
     document.getElementById('loginState').hidden = true;
     document.getElementById('dashboardState').hidden = false;
-    document.getElementById('accountEmail').textContent = email;
+    document.getElementById('accountEmail').textContent = me.email;
+    renderPlan(me);
     loadTargets();
+  }
+
+  // After a Stripe checkout redirect, the webhook that actually activates
+  // the plan can lag the browser landing back here by a second or two —
+  // poll /api/auth/me briefly instead of showing a stale "no plan" state.
+  async function pollPlanAfterCheckout(){
+    for(let i = 0; i < 6; i++){
+      await new Promise(r => setTimeout(r, 1500));
+      const me = await fetchMe();
+      if(me && me.plan){ renderPlan(me); loadTargets(); return; }
+    }
   }
 
   function showLogin(){
@@ -458,14 +617,19 @@
   });
 
   async function init(){
+    const billingParam = new URLSearchParams(window.location.search).get('billing');
+    if(billingParam){
+      history.replaceState(null, '', window.location.pathname);
+    }
+
     const { data: { session } } = await supabase.auth.getSession();
     if(session){
       await exchangeSession(session);
       const me = await fetchMe();
-      if(me){ showDashboard(me.email); return; }
+      if(me){ showDashboard(me); if(billingParam === 'success') pollPlanAfterCheckout(); return; }
     }
     const me = await fetchMe();
-    if(me){ showDashboard(me.email); return; }
+    if(me){ showDashboard(me); if(billingParam === 'success') pollPlanAfterCheckout(); return; }
     showLogin();
   }
 
