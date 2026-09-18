@@ -34,7 +34,7 @@ from .validators import InvalidIdentifier, validate_identifier
 
 logger = logging.getLogger("vigila")
 
-app = FastAPI(title="Vigila API")
+app = FastAPI(title="VigilaMultas API")
 
 app.add_middleware(
     CORSMiddleware,

@@ -15,7 +15,7 @@ import httpx
 logger = logging.getLogger("vigila")
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
-EMAIL_FROM = os.environ.get("EMAIL_FROM", "Vigila <noreply@vigilamultas.com>")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "VigilaMultas <noreply@vigilamultas.com>")
 
 
 def send_email(to: str, subject: str, html: str) -> bool:

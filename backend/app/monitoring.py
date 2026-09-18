@@ -99,7 +99,7 @@ def _alert_html(target_label: str | None, new_rows: list[Notification]) -> str:
         </a>
       </p>
       <p style="font-size:12px;color:#8B93A6;margin-top:28px;">
-        Recibes esto porque tienes una vigilancia activa en Vigila. Puedes eliminarla cuando quieras desde tu cuenta.
+        Recibes esto porque tienes una vigilancia activa en VigilaMultas. Puedes eliminarla cuando quieras desde tu cuenta.
       </p>
     </div>
     """
