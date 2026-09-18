@@ -1,0 +1,32 @@
+name: Send lifecycle emails
+
+# Day-based steps of the welcome/conversion email series (see
+# backend/app/lifecycle_emails.py) — "still no plan after N days" or
+# "paying for N days" can only be checked on a schedule, not reacted to
+# from a webhook. The immediate ("day 0") steps fire straight from the API
+# itself and don't need this.
+on:
+  schedule:
+    # Once a day, mid-morning UTC — not urgent like the BOE check, so no
+    # need for check_targets.yml's twice-a-day cadence.
+    - cron: "0 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+      - name: Send lifecycle emails
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TARGET_ENCRYPTION_KEY: ${{ secrets.TARGET_ENCRYPTION_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python -m scripts.send_lifecycle_emails

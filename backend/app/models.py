@@ -201,3 +201,38 @@ class NotificationRun(Base):
     ran_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
     result: Mapped[CheckResultEnum] = mapped_column(Enum(CheckResultEnum), nullable=False)
     raw_response_snippet: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class LifecycleEmailKey(str, enum.Enum):
+    """One entry per email in the welcome/conversion series (see
+    app/lifecycle_emails.py). The '_N' suffix is days since the reference
+    event (created_at for the no-plan series, subscribed_at for the paid
+    series) — '0' means sent immediately from the event itself."""
+
+    welcome_no_plan_0 = "welcome_no_plan_0"
+    welcome_no_plan_2 = "welcome_no_plan_2"
+    welcome_no_plan_5 = "welcome_no_plan_5"
+    welcome_no_plan_10 = "welcome_no_plan_10"
+    welcome_paid_0 = "welcome_paid_0"
+    welcome_paid_3 = "welcome_paid_3"
+    welcome_paid_30 = "welcome_paid_30"
+
+
+class LifecycleEmailLog(Base):
+    """Records that a given lifecycle email has already gone out to a given
+    user, so the daily cron (scripts/send_lifecycle_emails.py) never sends
+    the same step twice — it just checks "does a row exist?" every run
+    instead of tracking cursors. payment_failed isn't tracked here: it
+    fires straight from the Stripe webhook on each fresh transition into
+    past_due (see billing.apply_event), which can legitimately happen more
+    than once per user, unlike the rest of this onboarding series."""
+
+    __tablename__ = "lifecycle_email_log"
+    __table_args__ = (UniqueConstraint("user_id", "email_key", name="uq_lifecycle_email_user_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    email_key: Mapped[LifecycleEmailKey] = mapped_column(Enum(LifecycleEmailKey), nullable=False)
+    sent_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

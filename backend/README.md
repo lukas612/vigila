@@ -289,6 +289,11 @@ three things behind `/api/admin/*`:
   This can only ever be counts — `checks_free.value_hash` is a one-way
   hash, so there's no way to see *which* DNI/matrícula was checked, by
   design.
+- **Historial de búsquedas**: the same `checks_free` rows, but as a raw
+  paginated log (`GET /api/admin/checks/list`, 20/page) instead of daily
+  aggregates — date, result, and short hash-prefix "refs" for the value and
+  IP (never the DNI/matrícula itself, same privacy constraint as above),
+  useful for spotting the same identifier or IP showing up repeatedly.
 
 Gated by `auth.require_admin`: a logged-in user whose email isn't in the
 `ADMIN_EMAILS` env var (comma-separated) gets a 403, not a redirect — set
@@ -300,12 +305,51 @@ what they log into Vigila with.
 - Turnstile/CAPTCHA once the free-check rate limit is exceeded (currently
   just a 429 with a message).
 - SMS/WhatsApp alerts (email is wired up — see "Push email alert" above).
-- The landing page's anonymous "Quiero este plan" buttons (`index.html`)
-  are still email-capture only (`/api/waitlist`), not real checkout — real
-  subscribing happens from the logged-in "Mi plan" card in `cuenta.html`
-  instead, since Stripe checkout needs to be tied to an already-created
-  account (`client_reference_id`/`metadata.user_id`) for the webhook to
-  know whose row to update.
+- The landing page's main "Planes y precios" section (`index.html`) still
+  uses `/api/waitlist` email-capture for anonymous visitors, not real
+  checkout. The free-check result CTAs were switched over to
+  `cuenta.html?plan=...` (real Stripe checkout right after login — see
+  `cuenta.html`'s `PENDING_PLAN_KEY`), and the same should probably happen
+  here too, for consistency.
+
+## Lifecycle emails (welcome / conversion series)
+
+`app/lifecycle_emails.py` — a short, conversion-focused drip series on top
+of the same `email.send_email` (Resend) used for match alerts. Two
+branches, keyed by whether the account has ever paid:
+
+- **No plan yet** (`welcome_no_plan_0/2/5/10`): fires once on signup, then
+  reminds at day 2, 5 and 10 if they still haven't activated a plan —
+  escalating from "here's what you get" to cost-of-missing-the-deadline to
+  a last-call email.
+- **Just started paying** (`welcome_paid_0/3/30`): confirms the plan is
+  active and nudges them to add their first target (day 0 — they can't have
+  one yet, since `/api/targets` requires an active plan first), cross-sells
+  Individual → Familiar at day 3, and sends a real usage recap (checks run,
+  whether anything was found — via `NotificationRun`) at day 30.
+- **`payment_failed`**: sent straight from `billing.apply_event` on each
+  *fresh* transition into `past_due` (not deduped through the table below —
+  see its docstring — so a genuine fail → recover → fail-again cycle still
+  notifies each time, but a retried webhook delivery of the same status
+  doesn't double-send).
+
+Every step except `payment_failed` is deduped per user through
+`LifecycleEmailLog` (`user_id` + `email_key`, unique) — a step is sent at
+most once ever per user, so re-running the cron or retrying a webhook is
+always safe.
+
+Two triggers:
+1. **Immediate** (`*_0` steps): called straight from the event — new
+   profile row in `main._ensure_profile`, first `active` status in
+   `billing.apply_event`.
+2. **Day-N** (everything else): only knowable on a schedule, not from an
+   event — `scripts/send_lifecycle_emails.py`, run once a day via
+   `.github/workflows/send_lifecycle_emails.yml` (same pattern as
+   `check_monitored_targets.py`). Checks `>= N days` since `created_at`
+   (no-plan series) or `subscribed_at` (paid series), so a missed day still
+   catches up on the next run instead of skipping that step.
+
+Tests: `tests/test_lifecycle_emails.py`.
 
 ## Environment variables
 

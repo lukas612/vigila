@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from . import auth, billing, check_service, crypto, monitoring, stats
+from . import auth, billing, check_service, crypto, lifecycle_emails, monitoring, stats
 from .db import get_db, init_db
 from .models import (
     CheckFree,
@@ -231,11 +231,14 @@ def _ensure_profile(db: Session, user: auth.AuthUser) -> bool:
     Returns True the one time this actually created the row (i.e. a real
     first-time signup) — create_session uses that to fire the "Registro"
     ad conversion only once per person, not on every later login."""
-    if not db.query(User).filter(User.id == user.id).first():
-        db.add(User(id=user.id, email=user.email))
-        db.commit()
-        return True
-    return False
+    profile = db.query(User).filter(User.id == user.id).first()
+    if profile:
+        return False
+    profile = User(id=user.id, email=user.email)
+    db.add(profile)
+    db.commit()
+    lifecycle_emails.send_welcome_no_plan_0(db, profile)
+    return True
 
 
 @app.post("/api/auth/session", response_model=MeResponse)

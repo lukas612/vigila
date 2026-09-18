@@ -17,6 +17,7 @@ from datetime import datetime
 import httpx
 from sqlalchemy.orm import Session
 
+from . import lifecycle_emails
 from .models import Plan, SubscriptionStatus, User
 
 logger = logging.getLogger("vigila")
@@ -205,9 +206,12 @@ def apply_event(db: Session, event: dict) -> None:
             except ValueError:
                 logger.warning("checkout.session.completed with unknown plan %r", plan_value)
         user.subscription_status = SubscriptionStatus.active
-        if user.subscribed_at is None:
+        is_first_activation = user.subscribed_at is None
+        if is_first_activation:
             user.subscribed_at = datetime.utcnow()
         db.commit()
+        if is_first_activation:
+            lifecycle_emails.send_welcome_paid_0(db, user)
 
     elif event_type in ("customer.subscription.updated", "customer.subscription.created"):
         customer_id = obj.get("customer")
@@ -215,13 +219,22 @@ def apply_event(db: Session, event: dict) -> None:
         if not user:
             logger.warning("%s for unknown customer %s", event_type, customer_id)
             return
+        previous_status = user.subscription_status
         user.subscription_status = _STATUS_MAP.get(obj.get("status", ""), SubscriptionStatus.none)
-        if user.subscription_status == SubscriptionStatus.active and user.subscribed_at is None:
+        is_first_activation = user.subscription_status == SubscriptionStatus.active and user.subscribed_at is None
+        if is_first_activation:
             user.subscribed_at = datetime.utcnow()
         plan = _plan_from_subscription(obj)
         if plan:
             user.plan = plan
         db.commit()
+        if is_first_activation:
+            lifecycle_emails.send_welcome_paid_0(db, user)
+        elif user.subscription_status == SubscriptionStatus.past_due and previous_status != SubscriptionStatus.past_due:
+            # A fresh transition into past_due, not a webhook retry of one
+            # we already reacted to — see LifecycleEmailLog's docstring for
+            # why this isn't deduped through that table instead.
+            lifecycle_emails.send_payment_failed(user)
 
     elif event_type == "customer.subscription.deleted":
         customer_id = obj.get("customer")
