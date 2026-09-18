@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, timedelta
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -26,6 +26,8 @@ from .models import (
 )
 from .rate_limit import RateLimiter, hash_identifier
 from .schemas import (
+    AdminBillingDayCount,
+    AdminBillingResponse,
     AdminChecksResponse,
     AdminDayCount,
     AdminUserOut,
@@ -500,6 +502,48 @@ def admin_checks(
         by_day=[
             AdminDayCount(day=day, total=v["total"], found=v["found"])
             for day, v in sorted(by_day.items(), reverse=True)
+        ],
+    )
+
+
+@app.get("/api/admin/billing", response_model=AdminBillingResponse)
+def admin_billing(
+    _admin: auth.AuthUser = Depends(auth.require_admin), db: Session = Depends(get_db)
+) -> AdminBillingResponse:
+    """Altas, MRR y desglose por plan — main.PLAN_TARGET_LIMITS aside, this
+    is the money view: how many people actually pay, how much, and (via
+    subscribed_at, see billing.apply_event) when they signed up."""
+    users = db.query(User).all()
+
+    counts = {status: 0 for status in SubscriptionStatus}
+    by_plan: dict[str, int] = {}
+    mrr = 0.0
+    for u in users:
+        counts[u.subscription_status] += 1
+        if u.subscription_status in (SubscriptionStatus.active, SubscriptionStatus.trialing) and u.plan:
+            by_plan[u.plan.value] = by_plan.get(u.plan.value, 0) + 1
+            mrr += billing.PLAN_PRICES_EUR.get(u.plan, 0.0)
+
+    since = datetime.utcnow() - timedelta(days=13)
+    signup_dates = (
+        db.query(User.subscribed_at)
+        .filter(User.subscribed_at.isnot(None), User.subscribed_at >= since)
+        .all()
+    )
+    by_day: dict[str, int] = {}
+    for (subscribed_at,) in signup_dates:
+        key = subscribed_at.date().isoformat()
+        by_day[key] = by_day.get(key, 0) + 1
+
+    return AdminBillingResponse(
+        active_count=counts[SubscriptionStatus.active],
+        trialing_count=counts[SubscriptionStatus.trialing],
+        past_due_count=counts[SubscriptionStatus.past_due],
+        canceled_count=counts[SubscriptionStatus.canceled],
+        by_plan=by_plan,
+        mrr=round(mrr, 2),
+        signups_by_day=[
+            AdminBillingDayCount(day=day, count=count) for day, count in sorted(by_day.items(), reverse=True)
         ],
     )
 

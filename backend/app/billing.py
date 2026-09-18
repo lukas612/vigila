@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
 
 import httpx
 from sqlalchemy.orm import Session
@@ -43,6 +44,15 @@ PRICE_ID_TO_PLAN = {price_id: plan for plan, price_id in PLAN_PRICE_IDS.items() 
 PLAN_TARGET_LIMITS = {
     Plan.individual: 1,
     Plan.familiar: 5,
+}
+
+# For the admin panel's MRR estimate (main.admin_billing) — the current
+# list price per plan, not each customer's actual invoiced amount (which
+# could differ after a discount/coupon). Good enough for a founder-scale
+# dashboard; pull real invoice totals from Stripe if that gap ever matters.
+PLAN_PRICES_EUR = {
+    Plan.individual: 3.99,
+    Plan.familiar: 6.99,
 }
 
 _API_BASE = "https://api.stripe.com/v1"
@@ -186,6 +196,8 @@ def apply_event(db: Session, event: dict) -> None:
             except ValueError:
                 logger.warning("checkout.session.completed with unknown plan %r", plan_value)
         user.subscription_status = SubscriptionStatus.active
+        if user.subscribed_at is None:
+            user.subscribed_at = datetime.utcnow()
         db.commit()
 
     elif event_type in ("customer.subscription.updated", "customer.subscription.created"):
@@ -195,6 +207,8 @@ def apply_event(db: Session, event: dict) -> None:
             logger.warning("%s for unknown customer %s", event_type, customer_id)
             return
         user.subscription_status = _STATUS_MAP.get(obj.get("status", ""), SubscriptionStatus.none)
+        if user.subscription_status == SubscriptionStatus.active and user.subscribed_at is None:
+            user.subscribed_at = datetime.utcnow()
         plan = _plan_from_subscription(obj)
         if plan:
             user.plan = plan

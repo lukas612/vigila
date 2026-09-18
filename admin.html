@@ -95,6 +95,21 @@
 
   <div id="content" hidden>
     <div class="card">
+      <h2>Facturación</h2>
+      <div class="tiles">
+        <div class="tile"><div class="n" id="bMrr">—</div><div class="l">MRR estimado</div></div>
+        <div class="tile"><div class="n" id="bActive">—</div><div class="l">suscriptores activos</div></div>
+        <div class="tile"><div class="n" id="bIndividual">—</div><div class="l">plan individual</div></div>
+        <div class="tile"><div class="n" id="bFamiliar">—</div><div class="l">plan familiar</div></div>
+        <div class="tile"><div class="n" id="bPastDue">—</div><div class="l">con pago fallido</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Día</th><th>Altas de pago</th></tr></thead>
+        <tbody id="billingByDay"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
       <h2>Comprobaciones gratuitas</h2>
       <div class="tiles">
         <div class="tile"><div class="n" id="cTotal">—</div><div class="l">comprobaciones</div></div>
@@ -148,6 +163,22 @@
     return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
   }
 
+  async function loadBilling(){
+    const resp = await fetch(API_BASE + '/api/admin/billing', { credentials: 'include' });
+    if(!resp.ok) throw new Error('billing fetch failed');
+    const data = await resp.json();
+    document.getElementById('bMrr').textContent = data.mrr.toLocaleString('es-ES', {style: 'currency', currency: 'EUR'});
+    document.getElementById('bActive').textContent = data.active_count.toLocaleString('es-ES');
+    document.getElementById('bIndividual').textContent = (data.by_plan.individual || 0).toLocaleString('es-ES');
+    document.getElementById('bFamiliar').textContent = (data.by_plan.familiar || 0).toLocaleString('es-ES');
+    document.getElementById('bPastDue').textContent = data.past_due_count.toLocaleString('es-ES');
+
+    const tbody = document.getElementById('billingByDay');
+    tbody.innerHTML = data.signups_by_day.length
+      ? data.signups_by_day.map(d => `<tr><td>${formatDate(d.day)}</td><td>${d.count}</td></tr>`).join('')
+      : '<tr><td colspan="2" style="color:var(--ink-faint);">Sin altas de pago en los últimos 14 días.</td></tr>';
+  }
+
   async function loadChecks(){
     const resp = await fetch(API_BASE + '/api/admin/checks', { credentials: 'include' });
     if(!resp.ok) throw new Error('checks fetch failed');
@@ -198,6 +229,7 @@
       if(!usersResp.ok) throw new Error('users fetch failed');
 
       renderUsers(await usersResp.json());
+      await loadBilling();
       await loadChecks();
       document.getElementById('loadingState').hidden = true;
       document.getElementById('content').hidden = false;

@@ -271,8 +271,16 @@ portal, and one webhook.
 ## Admin panel
 
 `admin.html` (not linked from the public nav — reachable only by URL) shows
-two things behind `/api/admin/*`:
+three things behind `/api/admin/*`:
 
+- **Facturación**: MRR estimate (active/trialing count per plan × its
+  current list price — `billing.PLAN_PRICES_EUR`, not each customer's
+  actual invoiced amount), active/past-due/canceled counts, and a
+  last-14-days breakdown of paying signups. That last one reads
+  `User.subscribed_at`, set once by `billing.apply_event` the first time a
+  user's subscription ever goes active — never `created_at` (account
+  creation, possibly weeks before they paid) — so it's a real "altas"
+  history, not a proxy for one.
 - **Usuarios**: every account, its plan/subscription/Stripe fields (now
   populated once a user subscribes — see "Billing (Stripe)"), and how many
   targets/matches it has.

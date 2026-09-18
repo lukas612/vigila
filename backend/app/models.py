@@ -67,6 +67,12 @@ class User(Base):
     name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
+    # Set once, the first time subscription_status ever becomes active —
+    # never overwritten on a later renewal/plan switch — so the admin
+    # panel's "altas por día" reflects real signup dates, not created_at
+    # (which is account creation, possibly weeks before they ever paid).
+    subscribed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     monitored_ids: Mapped[list["MonitoredId"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 

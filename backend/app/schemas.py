@@ -144,3 +144,20 @@ class AdminChecksResponse(BaseModel):
     not_found: int
     error: int
     by_day: list[AdminDayCount]
+
+
+class AdminBillingDayCount(BaseModel):
+    day: str = Field(..., description="AAAA-MM-DD")
+    count: int = Field(..., description="Nuevas suscripciones activadas ese día")
+
+
+class AdminBillingResponse(BaseModel):
+    active_count: int
+    trialing_count: int
+    past_due_count: int
+    canceled_count: int
+    by_plan: dict[str, int] = Field(..., description="Suscriptores activos/en prueba por plan")
+    mrr: float = Field(..., description="Ingreso mensual recurrente estimado, en EUR")
+    signups_by_day: list[AdminBillingDayCount] = Field(
+        ..., description="Altas de pago de los últimos 14 días (por subscribed_at)"
+    )
