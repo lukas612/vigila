@@ -246,6 +246,7 @@
   .plan-name{ font-family: var(--font-head); font-weight:700; font-size:18px; margin-bottom:8px; }
   .plan-price{ font-family: var(--font-head); font-weight:800; font-size:36px; color: var(--brand); margin-bottom:18px; }
   .plan-price span{ font-size:14px; font-weight:600; color: var(--ink-faint); }
+  .plan-noperm{ font-size:12.5px; font-weight:700; color: var(--ok); margin:0 0 16px; }
   .plan-features{ list-style:none; padding:0; margin:0 0 20px; text-align:left; font-size:14px; color: var(--ink-soft); display:flex; flex-direction:column; gap:8px; }
   .plan-features li{ padding-left:20px; position:relative; }
   .plan-features li::before{ content:'✓'; color: var(--ok); font-weight:700; position:absolute; left:0; }
@@ -484,11 +485,12 @@
 <section class="pricing" id="planes">
   <div class="wrap">
     <h2 class="section-title">Planes y precios</h2>
-    <p class="section-sub">Sin permanencia. Cancela cuando quieras.</p>
+    <p class="section-sub"><b>Sin permanencia. Cancela cuando quieras.</b></p>
     <div class="plan-grid">
       <div class="plan-card">
         <div class="plan-name">Individual</div>
         <div class="plan-price">3,99€<span>/mes</span></div>
+        <div class="plan-noperm">Sin permanencia · cancela cuando quieras</div>
         <ul class="plan-features">
           <li>1 DNI, NIE o matrícula</li>
           <li>Revisión diaria en el BOE</li>
@@ -504,6 +506,7 @@
         <div class="plan-badge">Familiar / empresa</div>
         <div class="plan-name">Familiar</div>
         <div class="plan-price">6,99€<span>/mes</span></div>
+        <div class="plan-noperm">Sin permanencia · cancela cuando quieras</div>
         <ul class="plan-features">
           <li>Hasta 5 DNIs, NIEs o matrículas</li>
           <li>Revisión diaria en el BOE</li>
@@ -592,7 +595,7 @@
           <li>Te avisamos por email en cuanto aparezca algo a tu nombre</li>
           <li>Nunca más tienes que volver a comprobarlo tú</li>
         </ul>
-        <p>Actívate para que te avisemos automáticamente si aparece algo nuevo, desde <b>3,99€/mes</b>.</p>
+        <p>Actívate para que te avisemos automáticamente si aparece algo nuevo, desde <b>3,99€/mes</b>. Sin permanencia, cancela cuando quieras.</p>
         <div class="email-row">
           <input type="email" id="emailInput" placeholder="tu@email.com">
           <button class="btn-brand" id="emailBtnOk">Activar aviso automático</button>
@@ -638,7 +641,7 @@
           <li>Te avisamos por email de cualquier notificación nueva</li>
           <li>No se te vuelve a pasar un plazo de alegación</li>
         </ul>
-        <p>Suscríbete desde <b>3,99€/mes</b> para que vigilemos este DNI o matrícula automáticamente y te avisemos antes de que venza el plazo.</p>
+        <p>Suscríbete desde <b>3,99€/mes</b> para que vigilemos este DNI o matrícula automáticamente y te avisemos antes de que venza el plazo. Sin permanencia, cancela cuando quieras.</p>
         <div class="email-row">
           <input type="email" id="emailInput" placeholder="tu@email.com">
           <button class="btn-accent" id="emailBtnAlert">Suscribirme por 3,99€/mes</button>
