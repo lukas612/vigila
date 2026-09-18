@@ -14,6 +14,12 @@ Two ways these fire:
 payment_failed isn't part of the idempotent series — see
 LifecycleEmailLog's docstring — it's sent directly with app.email.send_email
 from billing.apply_event on each fresh transition into past_due.
+
+Each step is split into a pure `_content_*` builder (subject + inner HTML,
+no DB/network access) and a `send_*` wrapper (dedupes via LifecycleEmailLog,
+then actually sends). scripts/send_preview_emails.py calls the `_content_*`
+builders directly to render real copy into a real inbox without touching
+LifecycleEmailLog or requiring a User row to exist in the database.
 """
 from __future__ import annotations
 
@@ -75,7 +81,7 @@ def _send_once(db: Session, user: User, key: LifecycleEmailKey, subject: str, in
 # ---------------------------------------------------------------------------
 
 
-def send_welcome_no_plan_0(db: Session, user: User) -> bool:
+def _content_welcome_no_plan_0(user: User) -> tuple[str, str]:
     inner = f"""
         <h2 style="color:#1B4D8C;margin-bottom:4px;">Ya tienes cuenta en VigilaMultas — falta un paso</h2>
         <p>Hola,</p>
@@ -88,14 +94,15 @@ def send_welcome_no_plan_0(db: Session, user: User) -> bool:
         <p>Desde <b>3,99€/mes</b>. Sin permanencia, cancela cuando quieras.</p>
         {_button(CUENTA_URL, "Activar mi vigilancia")}
         """
-    return _send_once(
-        db, user, LifecycleEmailKey.welcome_no_plan_0,
-        "Ya tienes cuenta en VigilaMultas — falta un paso",
-        inner,
-    )
+    return "Ya tienes cuenta en VigilaMultas — falta un paso", inner
 
 
-def send_welcome_no_plan_2(db: Session, user: User) -> bool:
+def send_welcome_no_plan_0(db: Session, user: User) -> bool:
+    subject, inner = _content_welcome_no_plan_0(user)
+    return _send_once(db, user, LifecycleEmailKey.welcome_no_plan_0, subject, inner)
+
+
+def _content_welcome_no_plan_2(user: User) -> tuple[str, str]:
     inner = f"""
         <h2 style="color:#1B4D8C;margin-bottom:4px;">El BOE no avisa por correo. Nosotros sí.</h2>
         <p>Mucha gente no sabe que tiene una notificación pendiente hasta que es tarde: el BOE publica edictos que <b>se dan por notificados aunque no los veas</b>, y el plazo para alegar son solo 20 días naturales.</p>
@@ -104,14 +111,15 @@ def send_welcome_no_plan_2(db: Session, user: User) -> bool:
         <p style="font-size:13px;color:#57607A;">Sin permanencia. Cancelas cuando quieras, con un clic.</p>
         {_button(PLANES_URL, "Ver planes desde 3,99€/mes")}
         """
-    return _send_once(
-        db, user, LifecycleEmailKey.welcome_no_plan_2,
-        "El BOE no avisa por correo. Nosotros sí.",
-        inner,
-    )
+    return "El BOE no avisa por correo. Nosotros sí.", inner
 
 
-def send_welcome_no_plan_5(db: Session, user: User) -> bool:
+def send_welcome_no_plan_2(db: Session, user: User) -> bool:
+    subject, inner = _content_welcome_no_plan_2(user)
+    return _send_once(db, user, LifecycleEmailKey.welcome_no_plan_2, subject, inner)
+
+
+def _content_welcome_no_plan_5(user: User) -> tuple[str, str]:
     inner = f"""
         <h2 style="color:#1B4D8C;margin-bottom:4px;">Una multa de tráfico cuesta más que un año de VigilaMultas</h2>
         <p>Si se te pasa el plazo de alegación, la multa se da por firme — igual da que no la vieras. Una multa media ronda los 100-500€. Un año entero de VigilaMultas cuesta menos que eso.</p>
@@ -119,25 +127,27 @@ def send_welcome_no_plan_5(db: Session, user: User) -> bool:
         {_button(CUENTA_URL, "Activarme ahora")}
         <p style="font-size:13px;color:#57607A;">¿Dudas? Responde a este correo, te contestamos nosotros, no un bot.</p>
         """
-    return _send_once(
-        db, user, LifecycleEmailKey.welcome_no_plan_5,
-        "Una multa de tráfico cuesta más que un año de VigilaMultas",
-        inner,
-    )
+    return "Una multa de tráfico cuesta más que un año de VigilaMultas", inner
 
 
-def send_welcome_no_plan_10(db: Session, user: User) -> bool:
+def send_welcome_no_plan_5(db: Session, user: User) -> bool:
+    subject, inner = _content_welcome_no_plan_5(user)
+    return _send_once(db, user, LifecycleEmailKey.welcome_no_plan_5, subject, inner)
+
+
+def _content_welcome_no_plan_10(user: User) -> tuple[str, str]:
     inner = f"""
         <h2 style="color:#1B4D8C;margin-bottom:4px;">Vamos a dejar de recordártelo — última vez</h2>
         <p>No te vamos a insistir más después de este correo. Tu cuenta sigue abierta, pero sin plan activo no estamos revisando nada por ti.</p>
         <p>Si es cuestión de precio: el plan Individual son <b>3,99€/mes, sin permanencia</b>. Si es por confianza: cancelas cuando quieras desde tu cuenta, sin llamadas ni letra pequeña.</p>
         {_button(CUENTA_URL, "Activar mi vigilancia")}
         """
-    return _send_once(
-        db, user, LifecycleEmailKey.welcome_no_plan_10,
-        "Vamos a dejar de recordártelo — última vez",
-        inner,
-    )
+    return "Vamos a dejar de recordártelo — última vez", inner
+
+
+def send_welcome_no_plan_10(db: Session, user: User) -> bool:
+    subject, inner = _content_welcome_no_plan_10(user)
+    return _send_once(db, user, LifecycleEmailKey.welcome_no_plan_10, subject, inner)
 
 
 # ---------------------------------------------------------------------------
@@ -145,11 +155,11 @@ def send_welcome_no_plan_10(db: Session, user: User) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def send_welcome_paid_0(db: Session, user: User) -> bool:
-    """Sent the moment the subscription first goes active. At this exact
-    point the user can't have a target yet (main._max_targets requires an
-    active plan before /api/targets accepts one), so this always guides
-    them to add their first one rather than confirming one already exists."""
+def _content_welcome_paid_0(user: User) -> tuple[str, str]:
+    """At the exact point this fires, the user can't have a target yet
+    (main._max_targets requires an active plan before /api/targets accepts
+    one), so this always guides them to add their first one rather than
+    confirming one already exists."""
     plan_label = "Familiar" if user.plan == Plan.familiar else "Individual"
     inner = f"""
         <h2 style="color:#1B4D8C;margin-bottom:4px;">Tu plan {plan_label} ya está activo</h2>
@@ -162,11 +172,22 @@ def send_welcome_paid_0(db: Session, user: User) -> bool:
         {_button(CUENTA_URL, "Añadir mi primera vigilancia")}
         <p style="font-size:13px;color:#57607A;">Sin permanencia · Gestiona o cancela cuando quieras desde tu cuenta.</p>
         """
-    return _send_once(
-        db, user, LifecycleEmailKey.welcome_paid_0,
-        f"Tu plan {plan_label} ya está activo — añade tu primer DNI o matrícula",
-        inner,
-    )
+    return f"Tu plan {plan_label} ya está activo — añade tu primer DNI o matrícula", inner
+
+
+def send_welcome_paid_0(db: Session, user: User) -> bool:
+    subject, inner = _content_welcome_paid_0(user)
+    return _send_once(db, user, LifecycleEmailKey.welcome_paid_0, subject, inner)
+
+
+def _content_welcome_paid_3() -> tuple[str, str]:
+    inner = f"""
+        <h2 style="color:#1B4D8C;margin-bottom:4px;">¿Vigilamos también a tu pareja, tu hijo o tu furgoneta?</h2>
+        <p>Tu plan Individual cubre un solo DNI, NIE o matrícula. Con el plan <b>Familiar (6,99€/mes)</b> puedes vigilar hasta 5 — ideal para pareja, hijos con carné reciente, o varios vehículos de la familia o del negocio.</p>
+        <p>Solo 3€ más al mes por 4 vigilancias adicionales.</p>
+        {_button(CUENTA_URL, "Cambiar a plan Familiar")}
+        """
+    return "¿Vigilamos también a tu pareja, tu hijo o tu furgoneta?", inner
 
 
 def send_welcome_paid_3(db: Session, user: User) -> bool:
@@ -175,17 +196,8 @@ def send_welcome_paid_3(db: Session, user: User) -> bool:
     switch within the window still gets a chance to see it."""
     if user.plan != Plan.individual:
         return False
-    inner = f"""
-        <h2 style="color:#1B4D8C;margin-bottom:4px;">¿Vigilamos también a tu pareja, tu hijo o tu furgoneta?</h2>
-        <p>Tu plan Individual cubre un solo DNI, NIE o matrícula. Con el plan <b>Familiar (6,99€/mes)</b> puedes vigilar hasta 5 — ideal para pareja, hijos con carné reciente, o varios vehículos de la familia o del negocio.</p>
-        <p>Solo 3€ más al mes por 4 vigilancias adicionales.</p>
-        {_button(CUENTA_URL, "Cambiar a plan Familiar")}
-        """
-    return _send_once(
-        db, user, LifecycleEmailKey.welcome_paid_3,
-        "¿Vigilamos también a tu pareja, tu hijo o tu furgoneta?",
-        inner,
-    )
+    subject, inner = _content_welcome_paid_3()
+    return _send_once(db, user, LifecycleEmailKey.welcome_paid_3, subject, inner)
 
 
 def _checks_run_for_user(db: Session, user: User) -> int:
@@ -207,13 +219,8 @@ def _any_match_found_for_user(db: Session, user: User) -> bool:
     )
 
 
-def send_welcome_paid_30(db: Session, user: User) -> bool:
-    checks = _checks_run_for_user(db, user)
-    outcome = (
-        "te avisamos de al menos una notificación nueva."
-        if _any_match_found_for_user(db, user)
-        else "sin novedades — sigues limpio."
-    )
+def _content_welcome_paid_30(checks: int, found_any: bool) -> tuple[str, str]:
+    outcome = "te avisamos de al menos una notificación nueva." if found_any else "sin novedades — sigues limpio."
     checks_line = (
         f"hemos revisado el BOE <b>{checks}</b> {'vez' if checks == 1 else 'veces'} por ti"
         if checks
@@ -225,11 +232,14 @@ def send_welcome_paid_30(db: Session, user: User) -> bool:
         <p>Si te está siendo útil, nos ayuda mucho que lo compartas con alguien a quien le pueda pasar lo mismo — la mayoría de gente ni sabe que existe el Tablón Edictal Único.</p>
         {_button(CUENTA_URL, "Ver mi historial")}
         """
-    return _send_once(
-        db, user, LifecycleEmailKey.welcome_paid_30,
-        "Llevas un mes protegido — esto es lo que hemos comprobado por ti",
-        inner,
-    )
+    return "Llevas un mes protegido — esto es lo que hemos comprobado por ti", inner
+
+
+def send_welcome_paid_30(db: Session, user: User) -> bool:
+    checks = _checks_run_for_user(db, user)
+    found_any = _any_match_found_for_user(db, user)
+    subject, inner = _content_welcome_paid_30(checks, found_any)
+    return _send_once(db, user, LifecycleEmailKey.welcome_paid_30, subject, inner)
 
 
 # ---------------------------------------------------------------------------
@@ -238,10 +248,15 @@ def send_welcome_paid_30(db: Session, user: User) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def send_payment_failed(user: User) -> bool:
+def _content_payment_failed() -> tuple[str, str]:
     inner = f"""
         <h2 style="color:#D93025;margin-bottom:4px;">⚠️ Hemos pausado tu vigilancia — pago fallido</h2>
         <p>No hemos podido cobrar tu suscripción. Mientras no se regularice, <b>no estamos revisando el BOE por ti</b> — y si hay algo pendiente, el plazo de 20 días sigue corriendo igual.</p>
         {_button(CUENTA_URL, "Actualizar método de pago")}
         """
-    return email.send_email(user.email, "Hemos pausado tu vigilancia — pago fallido", _wrap(inner, user.email))
+    return "Hemos pausado tu vigilancia — pago fallido", inner
+
+
+def send_payment_failed(user: User) -> bool:
+    subject, inner = _content_payment_failed()
+    return email.send_email(user.email, subject, _wrap(inner, user.email))
