@@ -23,18 +23,31 @@ import logging
 
 from app import monitoring
 from app.db import SessionLocal, init_db
-from app.models import CheckResultEnum, MonitoredId, NotificationRun
+from app.models import CheckResultEnum, MonitoredId, NotificationRun, SubscriptionStatus, User
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("check_monitored_targets")
+
+# A canceled/lapsed subscriber's targets stay in the table (deleting them
+# would lose their history), but re-checking them twice a day is free
+# monitoring for someone who isn't paying — main.MAX_TARGETS_PER_USER only
+# ever blocked *creating* new ones, never stopped the cron from continuing
+# to check ones that already existed. Re-subscribing picks the same rows
+# back up automatically, since nothing here is ever deleted or flagged.
+_ENTITLED_STATUSES = (SubscriptionStatus.active, SubscriptionStatus.trialing)
 
 
 def run() -> None:
     init_db()
     db = SessionLocal()
     try:
-        targets = db.query(MonitoredId).filter(MonitoredId.active.is_(True)).all()
-        logger.info("checking %d active monitored target(s)", len(targets))
+        targets = (
+            db.query(MonitoredId)
+            .join(User, MonitoredId.user_id == User.id)
+            .filter(MonitoredId.active.is_(True), User.subscription_status.in_(_ENTITLED_STATUSES))
+            .all()
+        )
+        logger.info("checking %d active monitored target(s) with a paying owner", len(targets))
 
         for target in targets:
             try:

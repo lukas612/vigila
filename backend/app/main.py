@@ -282,7 +282,7 @@ def _mask(value: str) -> str:
     return "•" * (len(value) - 3) + value[-3:]
 
 
-def _target_out(target: MonitoredId, db: Session) -> TargetOut:
+def _target_out(target: MonitoredId, db: Session, monitoring_paused: bool = False) -> TargetOut:
     today = date.today()
     hits = (
         db.query(Notification)
@@ -295,6 +295,7 @@ def _target_out(target: MonitoredId, db: Session) -> TargetOut:
         label=target.label,
         value_masked=_mask(crypto.decrypt_value(target.value_encrypted)),
         active=target.active,
+        monitoring_paused=monitoring_paused,
         created_at=target.created_at.isoformat(),
         last_checked_at=target.last_checked_at.isoformat() if target.last_checked_at else None,
         notifications=[
@@ -322,7 +323,13 @@ def list_targets(
     rows = (
         db.query(MonitoredId).filter(MonitoredId.user_id == user.id).order_by(MonitoredId.created_at.desc()).all()
     )
-    return [_target_out(row, db) for row in rows]
+    profile = db.query(User).filter(User.id == user.id).first()
+    # A canceled/lapsed subscription doesn't delete existing targets, but
+    # the cron (scripts/check_monitored_targets.py) skips them the same
+    # way — surface that here instead of letting last_checked_at silently
+    # go stale with no explanation.
+    paused = _max_targets(profile) == 0
+    return [_target_out(row, db, monitoring_paused=paused) for row in rows]
 
 
 @app.post("/api/targets", response_model=TargetOut, status_code=201)

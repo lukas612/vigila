@@ -101,7 +101,15 @@ def create_checkout_session(user: User, plan: Plan, success_url: str, cancel_url
     as a real, accountable customer, not just an email address, and
     business customers need the CIF for a valid invoice. All of this comes
     back on the checkout.session.completed webhook's `customer_details`
-    and is copied onto our own User row there (see apply_event)."""
+    and is copied onto our own User row there (see apply_event).
+
+    automatic_tax is safe to enable even with zero Stripe Tax registrations
+    on the account (verified directly against the live API before adding
+    this) — Stripe just charges no tax until a registration exists for the
+    customer's jurisdiction, rather than erroring. It only actually
+    collects IVA once a registration is added in the Stripe Dashboard
+    (Settings → Tax → Registrations), which is a real business/legal step
+    this code can't do on its own."""
     price_id = PLAN_PRICE_IDS.get(plan)
     if not price_id:
         raise StripeError(f"No hay price de Stripe configurado para el plan {plan.value}")
@@ -116,6 +124,7 @@ def create_checkout_session(user: User, plan: Plan, success_url: str, cancel_url
         "billing_address_collection": "required",
         "phone_number_collection[enabled]": "true",
         "tax_id_collection[enabled]": "true",
+        "automatic_tax[enabled]": "true",
         "metadata[user_id]": user.id,
         "metadata[plan]": plan.value,
         "subscription_data[metadata][user_id]": user.id,

@@ -554,9 +554,11 @@
   function renderTarget(t){
     const title = t.label ? escapeHtml(t.label) : escapeHtml(t.value_masked);
     const sub = t.label ? escapeHtml(t.value_masked) : '';
-    const lastChecked = t.last_checked_at
-      ? `Última revisión: ${formatDate(t.last_checked_at)}`
-      : 'Aún sin revisar — se comprueba dos veces al día';
+    const lastChecked = t.monitoring_paused
+      ? '⏸ En pausa — sin suscripción activa, ya no se revisa'
+      : (t.last_checked_at
+        ? `Última revisión: ${formatDate(t.last_checked_at)}`
+        : 'Aún sin revisar — se comprueba dos veces al día');
     const n = t.notifications.length;
     const hits = n
       ? `<details class="hits-details">
@@ -573,7 +575,7 @@
           </div>
           <button class="btn-ghost" data-delete="${t.id}">Eliminar</button>
         </div>
-        <div class="target-meta">${lastChecked}</div>
+        <div class="target-meta"${t.monitoring_paused ? ' style="color:var(--alert);font-weight:600;"' : ''}>${lastChecked}</div>
         ${hits}
       </div>
     `;

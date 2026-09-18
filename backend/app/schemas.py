@@ -114,6 +114,9 @@ class TargetOut(BaseModel):
     label: str | None
     value_masked: str = Field(..., description="Identificador con todo menos los últimos caracteres ocultos")
     active: bool
+    monitoring_paused: bool = Field(
+        False, description="Sin suscripción activa — el cron ya no revisa este identificador"
+    )
     created_at: str
     last_checked_at: str | None
     notifications: list[NotificationHitOut]
