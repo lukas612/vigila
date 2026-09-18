@@ -126,6 +126,10 @@
   .plazo-ok{ color: var(--ok) !important; }
   .plazo-alert{ color: var(--alert) !important; }
 
+  .hits-details{ margin-top:12px; }
+  .hits-summary{ cursor:pointer; font-weight:700; font-size:13.5px; padding:6px 0; }
+  .hits-summary.alert{ color: var(--alert); }
+
   .empty-targets{ text-align:center; color: var(--ink-faint); font-size:14px; padding:20px 0; }
 
   .state{ text-align:center; padding:60px 20px; color: var(--ink-soft); }
@@ -304,8 +308,12 @@
     const lastChecked = t.last_checked_at
       ? `Última revisión: ${formatDate(t.last_checked_at)}`
       : 'Aún sin revisar — se comprueba dos veces al día';
-    const hits = t.notifications.length
-      ? t.notifications.map(renderNotification).join('')
+    const n = t.notifications.length;
+    const hits = n
+      ? `<details class="hits-details">
+          <summary class="hits-summary alert">⚠ ${n} notificación${n === 1 ? '' : 'es'} encontrada${n === 1 ? '' : 's'} — ver detalles</summary>
+          ${t.notifications.map(renderNotification).join('')}
+        </details>`
       : '<p class="target-meta" style="margin-top:12px;">Sin notificaciones encontradas por ahora.</p>';
     return `
       <div class="target" data-id="${t.id}">
