@@ -111,7 +111,7 @@ def _send_alert_email(target: MonitoredId, new_rows: list[Notification]) -> None
     except Exception:  # noqa: BLE001 - never let an email problem break the check
         logger.exception("could not resolve owner email for target %s", target.id)
         return
-    subject = f"⚠ Nueva notificación del BOE — {target.label or 'vigilancia'}"
+    subject = "Nueva multa encontrada en el BOE" + (f" — {target.label}" if target.label else "")
     email.send_email(owner_email, subject, _alert_html(target.label, new_rows))
 
 
