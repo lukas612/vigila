@@ -27,4 +27,5 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TARGET_ENCRYPTION_KEY: ${{ secrets.TARGET_ENCRYPTION_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: python -m scripts.check_monitored_targets

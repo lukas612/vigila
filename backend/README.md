@@ -184,23 +184,34 @@ want watched.
   uses, so "found" never means something different between the two paths —
   and records new matches in `notifications`, deduped on
   `(monitored_id, boe_ref, expediente)` so a repeated run never double-counts.
-  **This is pull-based, not push**: a match shows up next time the user
-  opens `cuenta.html`, nothing emails them yet. Sending an actual "you were
-  fined" email needs a transactional email provider — Supabase Auth's
-  mailer only sends its own login emails, not arbitrary content — and is a
-  deliberate follow-up, not an oversight.
+- **Push email alert** (`app/email.py`, via Resend): a new match — whether
+  found by the cron or by the immediate check `create_target` runs right
+  when a target is added — emails the target's owner
+  (`app/monitoring.py`'s `check_target`, shared by both call sites so the
+  email logic can't drift between them). Sending is best-effort: a Resend
+  failure is logged and never breaks the check that triggered it. Separate
+  from Supabase Auth's own mailer, which only ever sends its own login
+  emails, not arbitrary content.
 
 ### One-time setup this session couldn't do itself
 
 1. **Supabase → Authentication → URL Configuration → Redirect URLs**: add
-   `https://lukas612.github.io/vigila/cuenta.html` (and
+   `https://vigilamultas.com/cuenta.html` (and
    `http://localhost:8000/cuenta.html` if testing locally). Supabase
    rejects `emailRedirectTo` values that aren't on this list.
 2. Render env vars (Dashboard → vigila-api → Environment): `SUPABASE_URL`,
-   `SUPABASE_ANON_KEY`, `TARGET_ENCRYPTION_KEY` — see `.env.example`.
-3. GitHub Actions secret `TARGET_ENCRYPTION_KEY` on `check_targets.yml`
-   (Settings → Secrets and variables → Actions) — **must be the exact same
-   value as Render's**, or the cron can't decrypt what the API encrypted.
+   `SUPABASE_ANON_KEY`, `TARGET_ENCRYPTION_KEY`, `RESEND_API_KEY` — see
+   `.env.example`.
+3. GitHub Actions secrets on `check_targets.yml` (Settings → Secrets and
+   variables → Actions): `TARGET_ENCRYPTION_KEY` (**must be the exact same
+   value as Render's**, or the cron can't decrypt what the API encrypted)
+   and `RESEND_API_KEY` (so the cron's own matches get emailed too, not
+   just the ones found at target-creation time).
+4. Supabase Auth → Emails → SMTP Settings → custom SMTP via Resend
+   (`smtp.resend.com`, port 465, username `resend`, password = the Resend
+   API key, sender `noreply@vigilamultas.com`) — moves magic-link delivery
+   off Supabase's shared mailer, which has a low project-wide rate limit
+   that a few quick retries can exhaust for up to an hour.
 
 ## Admin panel
 
@@ -225,11 +236,9 @@ what they log into Vigila with.
 - Stripe checkout + webhooks, customer portal, plan enforcement (there's a
   flat `MAX_TARGETS_PER_USER = 5` anti-abuse cap in `main.py` instead of a
   real per-plan limit).
-- Push email alerts for a new match (see "The monitoring cron" above) —
-  needs picking a transactional email provider.
 - Turnstile/CAPTCHA once the free-check rate limit is exceeded (currently
   just a 429 with a message).
-- SMS/WhatsApp alerts.
+- SMS/WhatsApp alerts (email is wired up — see "Push email alert" above).
 
 ## Environment variables
 

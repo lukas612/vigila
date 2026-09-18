@@ -10,11 +10,9 @@ check from main.py itself, right when it's created — see
 app.monitoring.check_target — so this cron is what re-checks it going
 forward, not what checks it the very first time.)
 
-Pull-based for now: a new match is written to `notifications` and shows up
-next time the user opens their dashboard, but nothing emails them yet.
-Sending an actual "you were fined" email needs a transactional email
-provider (Supabase Auth's mailer only sends its own login emails, not
-arbitrary content) — that's a deliberate follow-up, not an oversight.
+A new match also emails the target's owner (via Resend — see app/email.py
+and app/monitoring.py), not just shows up next time they open their
+dashboard.
 
 Usage:
     python -m scripts.check_monitored_targets
@@ -40,15 +38,15 @@ def run() -> None:
 
         for target in targets:
             try:
-                new_hits = monitoring.check_target(db, target)
+                new_rows = monitoring.check_target(db, target)
             except Exception:
                 logger.exception("check failed for target %s", target.id)
                 db.add(NotificationRun(monitored_id=target.id, result=CheckResultEnum.error))
                 db.commit()
                 continue
 
-            if new_hits:
-                logger.info("target %s: %d new match(es)", target.id, new_hits)
+            if new_rows:
+                logger.info("target %s: %d new match(es), owner emailed", target.id, len(new_rows))
 
         logger.info("done")
     finally:
