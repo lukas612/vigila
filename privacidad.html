@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27%3E%3Ccircle cx=%279.8%27 cy=%279.8%27 r=%275.6%27 stroke=%27%231B4D8C%27 stroke-width=%271.9%27/%3E%3Cline x1=%2713.9%27 y1=%2713.9%27 x2=%2719.5%27 y2=%2719.5%27 stroke=%27%231B4D8C%27 stroke-width=%272.2%27 stroke-linecap=%27round%27/%3E%3Cpath d=%27M6.8 9.8L9 12L13.1 7.1%27 stroke=%27%23F5A623%27 stroke-width=%271.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<title>Privacidad y cookies — VigilaMultas</title>
+<meta name="robots" content="index, follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand: #1B4D8C;
+    --brand-dark: #123A6B;
+    --brand-light: #EAF2FC;
+    --accent: #F5A623;
+    --accent-dark: #DE8E0B;
+    --ink: #182233;
+    --ink-soft: #57607A;
+    --ink-faint: #8B93A6;
+    --ok: #1F9254;
+    --ok-soft: #E6F5EC;
+    --paper: #FFFFFF;
+    --surface: #F5F8FC;
+    --line: #E3E9F2;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 6px 16px rgba(19, 41, 75, 0.08);
+    --font-head: 'Poppins', -apple-system, sans-serif;
+    --font-ui: 'IBM Plex Sans', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+      --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+    --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--paper); color: var(--ink); font-family: var(--font-ui);
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--brand); }
+  .wrap{ max-width: 1040px; margin:0 auto; padding: 0 24px; }
+  .wrap-narrow{ max-width: 760px; margin:0 auto; padding:0 24px; }
+
+  .site-header-sticky{ position: sticky; top: 0; z-index: 50; background: var(--paper); }
+  header.masthead{ padding: 16px 0; display:flex; align-items:center; justify-content:space-between; }
+  .brand{ display:flex; align-items:center; gap:9px; font-family: var(--font-head); font-weight: 700; font-size: 21px; color: var(--brand); }
+  .brand svg{ flex-shrink:0; }
+  .site-nav{ display:flex; align-items:center; gap:22px; }
+  .site-nav a{ font-size:14px; font-weight:600; color: var(--ink-soft); text-decoration:none; }
+  .site-nav a:hover, .site-nav a.active{ color: var(--brand); }
+  .nav-toggle{
+    display:none; background:none; border:none; padding:6px; cursor:pointer;
+    width:34px; height:34px; align-items:center; justify-content:center; flex-shrink:0;
+  }
+
+  .disclaimer-strip{
+    font-size: 12.5px; color: var(--ink-faint); text-align:center;
+    padding: 7px 24px; background: var(--surface); border-bottom: 1px solid var(--line);
+  }
+
+  .page-hero{ padding: 40px 0 6px; text-align:center; }
+  .eyebrow{ font-size:12px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--brand); margin-bottom:10px; }
+  .page-hero h1{ font-family: var(--font-head); font-weight:800; font-size:30px; margin:0 0 10px; }
+  .page-hero p{ color: var(--ink-soft); font-size:14px; }
+
+  main{ padding: 30px 0 60px; }
+
+  .legal{ background: var(--paper); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding:36px; }
+  .legal h2{ font-family: var(--font-head); font-size:19px; font-weight:700; margin:32px 0 10px; color: var(--ink); }
+  .legal h2:first-child{ margin-top:0; }
+  .legal h3{ font-family: var(--font-head); font-size:15.5px; font-weight:700; margin:20px 0 8px; color: var(--ink); }
+  .legal p{ font-size:14.5px; color: var(--ink-soft); margin:0 0 14px; }
+  .legal ul, .legal ol{ font-size:14.5px; color: var(--ink-soft); margin:0 0 14px; padding-left:22px; }
+  .legal li{ margin-bottom:6px; }
+  .legal a{ color: var(--brand); text-decoration:underline; }
+  .legal table{ width:100%; border-collapse:collapse; font-size:13.5px; margin:0 0 18px; }
+  .legal th, .legal td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .legal th{ color: var(--ink-faint); font-weight:600; width:180px; }
+  .legal .note{
+    background: var(--brand-light); border-radius:10px; padding:12px 14px; font-size:13px;
+    color: var(--ink-soft); margin:0 0 18px;
+  }
+
+  footer{ padding: 24px 0 44px; font-size:12.5px; color: var(--ink-faint); text-align:center; }
+  .footer-links{ margin-top:6px; }
+  .footer-links a{ color: var(--ink-soft); text-decoration:underline; margin:0 6px; }
+
+  [hidden]{ display:none !important; }
+
+  @media (max-width: 640px){
+    .page-hero h1{ font-size:24px; }
+    header.masthead{ position:relative; }
+    .nav-toggle{ display:flex; }
+    .site-nav{
+      display:none; position:absolute; top:100%; left:0; right:0; z-index:40;
+      flex-direction:column; align-items:flex-start; gap:2px;
+      background: var(--paper); border-bottom:1px solid var(--line); box-shadow: var(--shadow-sm);
+      padding: 8px 24px 14px;
+    }
+    .site-nav.open{ display:flex; }
+    .site-nav a{ width:100%; padding:10px 0; }
+    .legal{ padding:24px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="site-header-sticky">
+  <div class="wrap">
+    <header class="masthead">
+      <span class="brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9.8" cy="9.8" r="5.6" stroke="var(--brand)" stroke-width="1.9"/><line x1="13.9" y1="13.9" x2="19.5" y2="19.5" stroke="var(--brand)" stroke-width="2.2" stroke-linecap="round"/><path d="M6.8 9.8L9 12L13.1 7.1" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        VigilaMultas
+      </span>
+      <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="siteNav">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <nav class="site-nav" id="siteNav">
+        <a href="index.html">Comprobar</a>
+        <a href="index.html#planes">Planes</a>
+        <a href="estadisticas.html">Estadísticas</a>
+        <a href="cuenta.html">Mi cuenta</a>
+      </nav>
+    </header>
+  </div>
+  <div class="disclaimer-strip">Servicio independiente. No es un organismo público ni está afiliado a la Administración General del Estado.</div>
+</div>
+
+<div class="page-hero wrap">
+  <div class="eyebrow">Privacidad</div>
+  <h1>Política de privacidad y cookies</h1>
+  <p>Qué datos tratamos, para qué, y cómo ejercer tus derechos.</p>
+</div>
+
+<main class="wrap-narrow">
+  <div class="legal">
+    <h2>1. Responsable del tratamiento</h2>
+    <table>
+      <tr><th>Responsable</th><td>Witme Advertising, S.L.</td></tr>
+      <tr><th>NIF / VAT</th><td>ESB44680262</td></tr>
+      <tr><th>Domicilio</th><td>Avda. Pablo Iglesias, 17, 28003 Madrid, España</td></tr>
+      <tr><th>Contacto</th><td><a href="mailto:hola@vigilamultas.com">hola@vigilamultas.com</a></td></tr>
+    </table>
+
+    <h2>2. Qué datos tratamos</h2>
+    <table>
+      <tr><th>Cuenta y acceso</th><td>Email (acceso mediante enlace de un solo uso, sin contraseña).</td></tr>
+      <tr><th>Facturación</th><td>Nombre, teléfono, dirección de facturación y, si aplica, CIF/NIF de empresa — recogidos directamente por Stripe durante el proceso de pago.</td></tr>
+      <tr><th>Vigilancia automática</th><td>El DNI, NIE o matrícula que decides vigilar, cifrado en nuestra base de datos (no en texto plano) y accesible únicamente para ejecutar la comprobación automática.</td></tr>
+      <tr><th>Comprobación gratuita</th><td>El DNI/NIE/matrícula introducido se usa solo para consultar el BOE en el momento de la petición; no se almacena en texto plano, únicamente un hash de un solo sentido (SHA-256) con fines estadísticos y de límite de uso.</td></tr>
+      <tr><th>Cookies y publicidad</th><td>Cookies de medición de anuncios (Google Ads), solo si das tu consentimiento. Ver la sección de cookies más abajo.</td></tr>
+    </table>
+    <div class="note">Nunca pedimos ni almacenamos datos de tu tarjeta de pago — los gestiona directamente Stripe, que cumple el estándar de seguridad PCI-DSS.</div>
+
+    <h2>3. Con qué finalidad tratamos tus datos</h2>
+    <ul>
+      <li>Prestar el servicio de comprobación gratuita y de vigilancia automática contratado.</li>
+      <li>Gestionar el alta, la facturación y el cobro de las suscripciones.</li>
+      <li>Enviarte el correo de aviso cuando encontramos una notificación a tu nombre.</li>
+      <li>Atender solicitudes de soporte y ejercicio de derechos.</li>
+      <li>Medir el rendimiento de nuestras campañas publicitarias, únicamente con tu consentimiento.</li>
+    </ul>
+
+    <h2>4. Base legal</h2>
+    <ul>
+      <li><strong>Ejecución de un contrato</strong>: para prestar el servicio de vigilancia y gestionar el pago de la suscripción.</li>
+      <li><strong>Consentimiento</strong>: para la comprobación gratuita (das tu consentimiento expreso al marcar la casilla correspondiente) y para las cookies de publicidad.</li>
+      <li><strong>Interés legítimo</strong>: para garantizar la seguridad del servicio y prevenir un uso abusivo (por ejemplo, límites de peticiones por IP).</li>
+    </ul>
+
+    <h2>5. A quién comunicamos tus datos</h2>
+    <p>No vendemos tus datos. Los compartimos únicamente con los proveedores necesarios para prestar el servicio, todos actuando como encargados del tratamiento bajo contrato:</p>
+    <table>
+      <tr><th>Supabase</th><td>Autenticación y base de datos (Unión Europea).</td></tr>
+      <tr><th>Render</th><td>Alojamiento del servidor de la aplicación.</td></tr>
+      <tr><th>Stripe</th><td>Procesamiento de pagos y facturación (Estados Unidos, acogido a mecanismos de transferencia internacional válidos).</td></tr>
+      <tr><th>Resend</th><td>Envío de correos electrónicos transaccionales.</td></tr>
+      <tr><th>Google</th><td>Medición de conversiones de Google Ads, solo con tu consentimiento (Estados Unidos, Marco de Privacidad de Datos UE-EE.UU.).</td></tr>
+      <tr><th>GitHub Pages</th><td>Alojamiento de las páginas estáticas del sitio.</td></tr>
+    </table>
+
+    <h2>6. Transferencias internacionales</h2>
+    <p>Algunos proveedores (Stripe, Google, Resend) tratan datos fuera del Espacio Económico Europeo. En esos casos, la transferencia se ampara en el Marco de Privacidad de Datos UE-EE.UU. (Data Privacy Framework) o en cláusulas contractuales tipo aprobadas por la Comisión Europea.</p>
+
+    <h2>7. Plazo de conservación</h2>
+    <p>Conservamos tus datos mientras mantengas una cuenta activa. Si cancelas tu suscripción, conservamos los datos de facturación durante el plazo que exige la normativa fiscal y mercantil (con carácter general, 6 años); el resto de datos se suprime o se anonimiza. Los hashes de la comprobación gratuita se conservan de forma agregada, sin poder asociarse a ninguna persona.</p>
+
+    <h2>8. Tus derechos</h2>
+    <p>Puedes ejercer en cualquier momento tus derechos de acceso, rectificación, supresión, oposición, limitación del tratamiento y portabilidad, escribiendo a <a href="mailto:hola@vigilamultas.com">hola@vigilamultas.com</a>. También puedes eliminar tus DNI/NIE/matrículas vigiladas directamente desde <a href="cuenta.html">Mi cuenta</a>.</p>
+    <p>Si consideras que no hemos atendido correctamente tu solicitud, puedes presentar una reclamación ante la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" rel="noopener">www.aepd.es</a>).</p>
+
+    <h2>9. Seguridad</h2>
+    <p>El DNI, NIE o matrícula que vigilas se almacena cifrado (no en texto plano). El acceso a la aplicación se realiza mediante enlaces de un solo uso, sin contraseñas que puedan filtrarse. Las cookies de sesión son de tipo HttpOnly, no accesibles desde JavaScript, para reducir el riesgo de robo de sesión.</p>
+
+    <h2>10. Cookies</h2>
+    <p>El Sitio utiliza cookies técnicas, necesarias para el funcionamiento del servicio (por ejemplo, mantener tu sesión iniciada), que no requieren consentimiento.</p>
+    <p>Además, si aceptas el aviso de cookies, activamos cookies de <strong>Google Ads</strong> para medir la efectividad de nuestra publicidad (Consentimiento otorgado mediante Google Consent Mode v2). Puedes retirar tu consentimiento en cualquier momento borrando las cookies del Sitio en tu navegador, lo que hará que el aviso de cookies vuelva a aparecer en tu próxima visita.</p>
+
+    <h2>11. Cambios en esta política</h2>
+    <p>Podemos actualizar esta política de privacidad para adaptarla a novedades legislativas o a cambios en el servicio. La fecha de la última actualización se indica al final de esta página.</p>
+    <p style="margin-top:24px;font-size:13px;color:var(--ink-faint);">Última actualización: septiembre de 2026.</p>
+
+  </div>
+</main>
+
+<div class="wrap">
+  <footer>
+    <p>&copy; 2026 VigilaMultas — Witme Advertising, S.L.</p>
+    <p class="footer-links">
+      <a href="aviso-legal.html">Aviso legal</a>·
+      <a href="privacidad.html">Privacidad y cookies</a>·
+      <a href="terminos.html">Términos y condiciones</a>
+    </p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var btn = document.getElementById('navToggle');
+  var nav = document.getElementById('siteNav');
+  if(!btn || !nav) return;
+  btn.addEventListener('click', function(){
+    var open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  nav.addEventListener('click', function(e){
+    if(e.target.tagName === 'A'){ nav.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+  });
+})();
+</script>
+
+</body>
+</html>

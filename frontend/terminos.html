@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27%3E%3Ccircle cx=%279.8%27 cy=%279.8%27 r=%275.6%27 stroke=%27%231B4D8C%27 stroke-width=%271.9%27/%3E%3Cline x1=%2713.9%27 y1=%2713.9%27 x2=%2719.5%27 y2=%2719.5%27 stroke=%27%231B4D8C%27 stroke-width=%272.2%27 stroke-linecap=%27round%27/%3E%3Cpath d=%27M6.8 9.8L9 12L13.1 7.1%27 stroke=%27%23F5A623%27 stroke-width=%271.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<title>Términos y condiciones — VigilaMultas</title>
+<meta name="robots" content="index, follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand: #1B4D8C;
+    --brand-dark: #123A6B;
+    --brand-light: #EAF2FC;
+    --accent: #F5A623;
+    --accent-dark: #DE8E0B;
+    --ink: #182233;
+    --ink-soft: #57607A;
+    --ink-faint: #8B93A6;
+    --ok: #1F9254;
+    --ok-soft: #E6F5EC;
+    --paper: #FFFFFF;
+    --surface: #F5F8FC;
+    --line: #E3E9F2;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 6px 16px rgba(19, 41, 75, 0.08);
+    --font-head: 'Poppins', -apple-system, sans-serif;
+    --font-ui: 'IBM Plex Sans', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+      --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+    --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--paper); color: var(--ink); font-family: var(--font-ui);
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--brand); }
+  .wrap{ max-width: 1040px; margin:0 auto; padding: 0 24px; }
+  .wrap-narrow{ max-width: 760px; margin:0 auto; padding:0 24px; }
+
+  .site-header-sticky{ position: sticky; top: 0; z-index: 50; background: var(--paper); }
+  header.masthead{ padding: 16px 0; display:flex; align-items:center; justify-content:space-between; }
+  .brand{ display:flex; align-items:center; gap:9px; font-family: var(--font-head); font-weight: 700; font-size: 21px; color: var(--brand); }
+  .brand svg{ flex-shrink:0; }
+  .site-nav{ display:flex; align-items:center; gap:22px; }
+  .site-nav a{ font-size:14px; font-weight:600; color: var(--ink-soft); text-decoration:none; }
+  .site-nav a:hover, .site-nav a.active{ color: var(--brand); }
+  .nav-toggle{
+    display:none; background:none; border:none; padding:6px; cursor:pointer;
+    width:34px; height:34px; align-items:center; justify-content:center; flex-shrink:0;
+  }
+
+  .disclaimer-strip{
+    font-size: 12.5px; color: var(--ink-faint); text-align:center;
+    padding: 7px 24px; background: var(--surface); border-bottom: 1px solid var(--line);
+  }
+
+  .page-hero{ padding: 40px 0 6px; text-align:center; }
+  .eyebrow{ font-size:12px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--brand); margin-bottom:10px; }
+  .page-hero h1{ font-family: var(--font-head); font-weight:800; font-size:30px; margin:0 0 10px; }
+  .page-hero p{ color: var(--ink-soft); font-size:14px; }
+
+  main{ padding: 30px 0 60px; }
+
+  .legal{ background: var(--paper); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding:36px; }
+  .legal h2{ font-family: var(--font-head); font-size:19px; font-weight:700; margin:32px 0 10px; color: var(--ink); }
+  .legal h2:first-child{ margin-top:0; }
+  .legal h3{ font-family: var(--font-head); font-size:15.5px; font-weight:700; margin:20px 0 8px; color: var(--ink); }
+  .legal p{ font-size:14.5px; color: var(--ink-soft); margin:0 0 14px; }
+  .legal ul, .legal ol{ font-size:14.5px; color: var(--ink-soft); margin:0 0 14px; padding-left:22px; }
+  .legal li{ margin-bottom:6px; }
+  .legal a{ color: var(--brand); text-decoration:underline; }
+  .legal table{ width:100%; border-collapse:collapse; font-size:13.5px; margin:0 0 18px; }
+  .legal th, .legal td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .legal th{ color: var(--ink-faint); font-weight:600; width:180px; }
+  .legal .note{
+    background: var(--brand-light); border-radius:10px; padding:12px 14px; font-size:13px;
+    color: var(--ink-soft); margin:0 0 18px;
+  }
+
+  footer{ padding: 24px 0 44px; font-size:12.5px; color: var(--ink-faint); text-align:center; }
+  .footer-links{ margin-top:6px; }
+  .footer-links a{ color: var(--ink-soft); text-decoration:underline; margin:0 6px; }
+
+  [hidden]{ display:none !important; }
+
+  @media (max-width: 640px){
+    .page-hero h1{ font-size:24px; }
+    header.masthead{ position:relative; }
+    .nav-toggle{ display:flex; }
+    .site-nav{
+      display:none; position:absolute; top:100%; left:0; right:0; z-index:40;
+      flex-direction:column; align-items:flex-start; gap:2px;
+      background: var(--paper); border-bottom:1px solid var(--line); box-shadow: var(--shadow-sm);
+      padding: 8px 24px 14px;
+    }
+    .site-nav.open{ display:flex; }
+    .site-nav a{ width:100%; padding:10px 0; }
+    .legal{ padding:24px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="site-header-sticky">
+  <div class="wrap">
+    <header class="masthead">
+      <span class="brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9.8" cy="9.8" r="5.6" stroke="var(--brand)" stroke-width="1.9"/><line x1="13.9" y1="13.9" x2="19.5" y2="19.5" stroke="var(--brand)" stroke-width="2.2" stroke-linecap="round"/><path d="M6.8 9.8L9 12L13.1 7.1" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        VigilaMultas
+      </span>
+      <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="siteNav">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <nav class="site-nav" id="siteNav">
+        <a href="index.html">Comprobar</a>
+        <a href="index.html#planes">Planes</a>
+        <a href="estadisticas.html">Estadísticas</a>
+        <a href="cuenta.html">Mi cuenta</a>
+      </nav>
+    </header>
+  </div>
+  <div class="disclaimer-strip">Servicio independiente. No es un organismo público ni está afiliado a la Administración General del Estado.</div>
+</div>
+
+<div class="page-hero wrap">
+  <div class="eyebrow">Condiciones</div>
+  <h1>Términos y condiciones</h1>
+  <p>Condiciones de contratación del servicio VigilaMultas.</p>
+</div>
+
+<main class="wrap-narrow">
+  <div class="legal">
+    <h2>1. Objeto</h2>
+    <p>Las presentes condiciones generales regulan la contratación del servicio VigilaMultas, prestado por Witme Advertising, S.L. (NIF ESB44680262, Avda. Pablo Iglesias, 17, 28003 Madrid), a través del sitio web vigilamultas.com.</p>
+    <p>VigilaMultas consulta de forma automatizada el Tablón Edictal Único del BOE y avisa por email cuando encuentra una notificación de tráfico asociada al DNI, NIE o matrícula que el usuario decide vigilar. <strong>El servicio tiene carácter meramente informativo: no presta asesoramiento legal, no presenta alegaciones ni recursos, y no garantiza la detección de la totalidad de las notificaciones publicadas.</strong></p>
+
+    <h2>2. Planes y precios</h2>
+    <table>
+      <tr><th>Individual</th><td>3,99€/mes — hasta 1 DNI, NIE o matrícula vigilados.</td></tr>
+      <tr><th>Familiar / empresa</th><td>6,99€/mes — hasta 5 DNIs, NIEs o matrículas vigilados.</td></tr>
+    </table>
+    <p>Los precios incluyen los impuestos aplicables. VigilaMultas se reserva el derecho de modificar los precios de los planes, lo que en ningún caso afectará a la suscripción ya contratada hasta su siguiente renovación, momento en el que se informará del nuevo precio.</p>
+
+    <h2>3. Registro y cuenta de usuario</h2>
+    <p>El acceso a la cuenta se realiza sin contraseña, mediante un enlace de un solo uso enviado al correo electrónico indicado. El usuario es responsable de mantener el acceso a dicho correo y de la veracidad de los datos facilitados.</p>
+
+    <h2>4. Contratación, pago y facturación</h2>
+    <p>La suscripción se contrata y se paga a través de la pasarela de pago Stripe, que procesa el cobro recurrente mensual con la tarjeta o método de pago indicado por el usuario. VigilaMultas no accede ni almacena los datos de la tarjeta de pago.</p>
+    <p>Si el usuario contrata en nombre de una empresa, puede facilitar su CIF/NIF durante el proceso de pago para recibir una factura con dicho dato fiscal.</p>
+
+    <h2>5. Duración, renovación y cancelación</h2>
+    <p>La suscripción es de renovación mensual automática, <strong>sin permanencia</strong>. El usuario puede cancelarla en cualquier momento desde "Mi cuenta → Facturación y suscripción", con efectos al final del periodo ya pagado — no se realizan devoluciones por el periodo en curso.</p>
+
+    <h2>6. Derecho de desistimiento</h2>
+    <p>De acuerdo con el Real Decreto Legislativo 1/2007 (TRLGDCU), como consumidor dispones de un plazo de 14 días naturales para desistir del contrato sin necesidad de justificación. Ahora bien, dado que el servicio de vigilancia se activa de forma inmediata tras el pago (comprobación automática desde el primer momento), al contratar y aceptar estas condiciones el usuario <strong>solicita expresamente el inicio inmediato de la prestación del servicio</strong> y reconoce que, una vez el servicio se haya ejecutado completamente, perderá su derecho de desistimiento, conforme al artículo 103.a) del TRLGDCU.</p>
+    <p>Mientras el servicio no se haya ejecutado completamente, el usuario puede desistir escribiendo a <a href="mailto:hola@vigilamultas.com">hola@vigilamultas.com</a>, y se le reembolsará la parte proporcional no disfrutada.</p>
+
+    <h2>7. Obligaciones del usuario</h2>
+    <ul>
+      <li>Utilizar el servicio únicamente para vigilar tu propio DNI/NIE/matrícula, o los de personas/vehículos para los que tengas autorización legítima.</li>
+      <li>No utilizar el servicio con fines fraudulentos, para acosar a terceros o para fines contrarios a la ley.</li>
+      <li>Mantener actualizado tu método de pago para evitar interrupciones en el servicio.</li>
+    </ul>
+
+    <h2>8. Exclusión de responsabilidad</h2>
+    <p>VigilaMultas realiza sus mejores esfuerzos técnicos para detectar las notificaciones publicadas en el BOE, pero no puede garantizar una detección al 100%, ni la disponibilidad continua del servicio, ni que el BOE no modifique su formato de publicación de forma que afecte temporalmente a la detección. En ningún caso el uso del servicio exime al usuario de su propia obligación de consultar el Tablón Edictal Único ni de cumplir los plazos legales de alegación.</p>
+
+    <h2>9. Propiedad intelectual</h2>
+    <p>Todos los contenidos, marca y código del Sitio son propiedad de Witme Advertising, S.L. Queda prohibida su reproducción o explotación sin autorización expresa.</p>
+
+    <h2>10. Modificación de las condiciones</h2>
+    <p>Witme Advertising, S.L. podrá modificar estas condiciones generales. Los cambios sustanciales se notificarán a los usuarios con cuenta activa con antelación razonable.</p>
+
+    <h2>11. Legislación aplicable y resolución de conflictos</h2>
+    <p>Estas condiciones se rigen por la legislación española. Como consumidor, puedes acudir también a la plataforma europea de resolución de litigios en línea: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">ec.europa.eu/consumers/odr</a>. Sin perjuicio del fuero que te corresponda como consumidor, para cualquier controversia las partes se someten a los Juzgados y Tribunales de Madrid capital.</p>
+    <p style="margin-top:24px;font-size:13px;color:var(--ink-faint);">Última actualización: septiembre de 2026.</p>
+
+  </div>
+</main>
+
+<div class="wrap">
+  <footer>
+    <p>&copy; 2026 VigilaMultas — Witme Advertising, S.L.</p>
+    <p class="footer-links">
+      <a href="aviso-legal.html">Aviso legal</a>·
+      <a href="privacidad.html">Privacidad y cookies</a>·
+      <a href="terminos.html">Términos y condiciones</a>
+    </p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var btn = document.getElementById('navToggle');
+  var nav = document.getElementById('siteNav');
+  if(!btn || !nav) return;
+  btn.addEventListener('click', function(){
+    var open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  nav.addEventListener('click', function(e){
+    if(e.target.tagName === 'A'){ nav.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+  });
+})();
+</script>
+
+</body>
+</html>

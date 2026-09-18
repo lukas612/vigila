@@ -21,8 +21,10 @@
   });
   gtag('js', new Date());
   gtag('config', 'AW-18459993752');
+  gtag('config', 'G-2YQSXWT6VM');
 </script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18459993752"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2YQSXWT6VM"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -282,6 +284,8 @@
   .cta-band h2{ font-family: var(--font-head); font-size:26px; font-weight:700; margin:0 0 20px; color:#2A1B00; }
 
   footer{ padding: 34px 0 44px; font-size:12.5px; color: var(--ink-faint); }
+  .footer-links{ margin-top:6px; }
+  .footer-links a{ color: var(--ink-soft); text-decoration:underline; margin:0 6px; }
   footer p{ margin:0 0 8px; max-width:70ch; }
 
   @media (max-width: 780px){
@@ -326,7 +330,7 @@
 <body>
 
 <div class="cookie-banner" id="cookieBanner" hidden>
-  <p>Usamos cookies para medir visitas y anuncios (Google Ads). Puedes aceptarlas o seguir navegando sin ellas.</p>
+  <p>Usamos cookies para medir visitas y anuncios (Google Ads). Puedes aceptarlas o seguir navegando sin ellas. <a href="privacidad.html" style="text-decoration:underline;">Más información</a>.</p>
   <div class="cookie-actions">
     <button class="btn-plain" id="cookieReject">Rechazar</button>
     <button class="btn-accent" id="cookieAccept">Aceptar</button>
@@ -590,7 +594,12 @@
 <div class="wrap">
   <footer>
     <p>VigilaMultas es un servicio de monitorización que consulta fuentes públicas oficiales (Tablón Edictal Único del BOE) en nombre del usuario. No presta asesoramiento legal ni gestiona recursos o alegaciones.</p>
-    <p>&copy; 2026 VigilaMultas</p>
+    <p>&copy; 2026 VigilaMultas — Witme Advertising, S.L.</p>
+    <p class="footer-links">
+      <a href="aviso-legal.html">Aviso legal</a>·
+      <a href="privacidad.html">Privacidad y cookies</a>·
+      <a href="terminos.html">Términos y condiciones</a>
+    </p>
   </footer>
 </div>
 
@@ -604,6 +613,14 @@
 <script>
 (function(){
   const API_BASE = window.VIGILA_API_BASE || '';
+
+  // GA4 events (separate from the Google Ads conversion calls elsewhere,
+  // which use an explicit send_to — these plain events go to every
+  // configured tag, i.e. just GA4 here). Best-effort: consent may still be
+  // denied, in which case gtag itself drops/models the hit.
+  function gaEvent(name, params){
+    if(typeof gtag === 'function') gtag('event', name, params || {});
+  }
 
   // A logged-in visitor shouldn't run the anonymous one-off check or get
   // asked for their email again here — that's what the account dashboard
@@ -646,6 +663,7 @@
 
       freshBtn.textContent = hasActivePlan ? 'Cambiar a este plan' : 'Suscribirme';
       freshBtn.addEventListener('click', async function(){
+        gaEvent('select_plan', { plan, method: hasActivePlan ? 'change_plan' : 'checkout', page: 'home', logged_in: true });
         freshBtn.disabled = true;
         const path = hasActivePlan ? '/api/billing/portal' : '/api/billing/checkout';
         const body = hasActivePlan ? undefined : JSON.stringify({ plan });
@@ -660,6 +678,7 @@
             freshBtn.textContent = 'No se pudo continuar, inténtalo de nuevo';
             return;
           }
+          gaEvent('checkout_start', { plan, method: hasActivePlan ? 'portal' : 'checkout', page: 'home' });
           window.location.href = data.url;
         } finally {
           freshBtn.disabled = false;
@@ -693,6 +712,7 @@
   }
 
   function renderOk(){
+    gaEvent('free_check_result', { result: 'not_found' });
     inner.innerHTML = `
       <div class="status-line">${okIcon} Sin notificaciones pendientes</div>
       <div class="result-body">No hemos encontrado ninguna publicación a tu nombre en el Tablón Edictal Único del BOE en este momento. Pero puede aparecer en cualquier momento — el BOE publica miles de notificaciones cada día y nunca avisan por correo.</div>
@@ -727,6 +747,7 @@
   }
 
   function renderAlert(notifications){
+    gaEvent('free_check_result', { result: 'found', count: notifications.length });
     const tables = notifications.map(n => `
       <div class="fine-table">
         <div class="row"><span>Expediente</span><span>${escapeHtml(n.expediente || '—')}</span></div>
@@ -770,6 +791,7 @@
     b.addEventListener('click', async function(){
       const val = document.getElementById('emailInput').value.trim();
       if(!val || !val.includes('@')) return;
+      gaEvent('lead_email_submit', { context });
       b.disabled = true;
       try{
         await fetch(API_BASE + '/api/waitlist', {
@@ -805,6 +827,7 @@
         'currency': 'EUR'
       });
     }
+    gaEvent('start_free_check');
 
     btn.disabled = true;
     btn.innerHTML = 'Consultando el BOE…';
@@ -860,6 +883,7 @@
       const confirmEl = document.querySelector('.plan-confirm[data-plan="' + plan + '"]');
       const val = emailInput.value.trim();
       if(!val || !val.includes('@')){ emailInput.focus(); return; }
+      gaEvent('select_plan', { plan, method: 'email_capture', page: 'home', logged_in: false });
       planBtn.disabled = true;
       try{
         await fetch(API_BASE + '/api/waitlist', {

@@ -21,8 +21,10 @@
   });
   gtag('js', new Date());
   gtag('config', 'AW-18459993752');
+  gtag('config', 'G-2YQSXWT6VM');
 </script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18459993752"></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-2YQSXWT6VM"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -205,6 +207,8 @@
   [hidden]{ display:none !important; }
 
   footer{ padding: 24px 0 44px; font-size:12.5px; color: var(--ink-faint); text-align:center; }
+  .footer-links{ margin-top:6px; }
+  .footer-links a{ color: var(--ink-soft); text-decoration:underline; margin:0 6px; }
 
   @media (max-width: 640px){
     .page-hero h1{ font-size:26px; }
@@ -236,7 +240,7 @@
 <body>
 
 <div class="cookie-banner" id="cookieBanner" hidden>
-  <p>Usamos cookies para medir visitas y anuncios (Google Ads). Puedes aceptarlas o seguir navegando sin ellas.</p>
+  <p>Usamos cookies para medir visitas y anuncios (Google Ads). Puedes aceptarlas o seguir navegando sin ellas. <a href="privacidad.html" style="text-decoration:underline;">Más información</a>.</p>
   <div class="cookie-actions">
     <button class="btn-plain" id="cookieReject">Rechazar</button>
     <button class="btn-accent" id="cookieAccept">Aceptar</button>
@@ -434,7 +438,12 @@
 
 <div class="wrap">
   <footer>
-    <p>&copy; 2026 VigilaMultas</p>
+    <p>&copy; 2026 VigilaMultas — Witme Advertising, S.L.</p>
+    <p class="footer-links">
+      <a href="aviso-legal.html">Aviso legal</a>·
+      <a href="privacidad.html">Privacidad y cookies</a>·
+      <a href="terminos.html">Términos y condiciones</a>
+    </p>
   </footer>
 </div>
 
@@ -449,6 +458,14 @@
 <script>
 (function(){
   const API_BASE = window.VIGILA_API_BASE || '';
+
+  // GA4 events (separate from the Google Ads conversion calls elsewhere,
+  // which use an explicit send_to — these plain events go to every
+  // configured tag, i.e. just GA4 here). Best-effort: consent may still be
+  // denied, in which case gtag itself drops/models the hit.
+  function gaEvent(name, params){
+    if(typeof gtag === 'function') gtag('event', name, params || {});
+  }
 
   // Public by design — an anon key only opens Supabase Auth's magic-link
   // flow here, it never touches our own tables (those go through our API,
@@ -494,12 +511,15 @@
     // profile row — a real first-time signup, not a returning login — so
     // the "Registro" ad conversion can't get double-counted on every visit.
     const data = await resp.json().catch(() => null);
-    if(data && data.is_new_user && typeof gtag === 'function'){
-      gtag('event', 'conversion', {
-        'send_to': 'AW-18459993752/FM5ECL70nvwcEJjNtOJE',
-        'value': 1.0,
-        'currency': 'EUR'
-      });
+    if(data && data.is_new_user){
+      if(typeof gtag === 'function'){
+        gtag('event', 'conversion', {
+          'send_to': 'AW-18459993752/FM5ECL70nvwcEJjNtOJE',
+          'value': 1.0,
+          'currency': 'EUR'
+        });
+      }
+      gaEvent('sign_up', { method: 'magic_link' });
     }
   }
 
@@ -611,7 +631,7 @@
     if(e.key === 'Escape') closeAccountMenu();
   });
 
-  async function startCheckout(plan, btn){
+  async function startCheckout(plan, btn, source){
     const errorEl = document.getElementById('planError');
     hideError(errorEl);
     if(btn) btn.disabled = true;
@@ -626,6 +646,7 @@
         showError(errorEl, data.detail || 'No se pudo iniciar el pago. Inténtalo de nuevo.');
         return;
       }
+      gaEvent('checkout_start', { plan, method: 'checkout', page: 'cuenta', source: source || 'dashboard' });
       window.location.href = data.url;
     } finally {
       if(btn) btn.disabled = false;
@@ -633,7 +654,10 @@
   }
 
   document.querySelectorAll('[data-subscribe]').forEach(btn => {
-    btn.addEventListener('click', () => startCheckout(btn.getAttribute('data-subscribe'), btn));
+    btn.addEventListener('click', () => {
+      gaEvent('select_plan', { plan: btn.getAttribute('data-subscribe'), method: 'checkout', page: 'cuenta', logged_in: true });
+      startCheckout(btn.getAttribute('data-subscribe'), btn, 'dashboard');
+    });
   });
 
   // Not logged in yet but they picked a plan: remember it (localStorage,
@@ -653,7 +677,9 @@
         emailInput.focus();
         return;
       }
-      localStorage.setItem(PENDING_PLAN_KEY, btn.getAttribute('data-preplan'));
+      const plan = btn.getAttribute('data-preplan');
+      gaEvent('select_plan', { plan, method: 'preplan_prelogin', page: 'cuenta', logged_in: false });
+      localStorage.setItem(PENDING_PLAN_KEY, plan);
       document.getElementById('loginBtn').click();
     });
   });
@@ -672,6 +698,7 @@
         showError(errorEl, data.detail || 'No se pudo abrir el panel de facturación.');
         return;
       }
+      gaEvent('manage_billing_click');
       window.location.href = data.url;
     } finally {
       btn.disabled = false;
@@ -704,6 +731,7 @@
         await fetch(API_BASE + '/api/targets/' + btn.getAttribute('data-delete'), {
           method: 'DELETE', credentials: 'include',
         });
+        gaEvent('delete_target');
         loadTargets();
       });
     });
@@ -720,7 +748,7 @@
     const pendingPlan = localStorage.getItem(PENDING_PLAN_KEY);
     if(pendingPlan){
       localStorage.removeItem(PENDING_PLAN_KEY);
-      if(me.max_targets === 0) startCheckout(pendingPlan, null);
+      if(me.max_targets === 0) startCheckout(pendingPlan, null, 'pending_plan');
     }
   }
 
@@ -738,13 +766,18 @@
         // shows up right after a real Stripe checkout completes, and
         // init() strips it immediately — so this can't re-fire on a
         // refresh or a later, unrelated visit to this page.
+        const planValue = me.plan === 'familiar' ? 6.99 : 3.99;
         if(typeof gtag === 'function'){
           gtag('event', 'conversion', {
             'send_to': 'AW-18459993752/zf70CLv0nvwcEJjNtOJE',
-            'value': me.plan === 'familiar' ? 6.99 : 3.99,
+            'value': planValue,
             'currency': 'EUR'
           });
         }
+        gaEvent('purchase', {
+          currency: 'EUR', value: planValue,
+          items: [{ item_name: me.plan, price: planValue, quantity: 1 }],
+        });
         return;
       }
     }
@@ -781,10 +814,12 @@
       showError(errorEl, 'No se pudo enviar el enlace. Inténtalo de nuevo en unos minutos.');
       return;
     }
+    gaEvent('login', { method: 'magic_link' });
     okEl.classList.add('show');
   });
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
+    gaEvent('logout');
     await fetch(API_BASE + '/api/auth/logout', { method: 'POST', credentials: 'include' });
     window.location.reload();
   });
@@ -826,6 +861,7 @@
       valueInput.value = '';
       labelInput.value = '';
       consentInput.checked = false;
+      gaEvent('add_target');
       loadTargets();
     } finally {
       btn.disabled = false;

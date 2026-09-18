@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27 fill=%27none%27%3E%3Ccircle cx=%279.8%27 cy=%279.8%27 r=%275.6%27 stroke=%27%231B4D8C%27 stroke-width=%271.9%27/%3E%3Cline x1=%2713.9%27 y1=%2713.9%27 x2=%2719.5%27 y2=%2719.5%27 stroke=%27%231B4D8C%27 stroke-width=%272.2%27 stroke-linecap=%27round%27/%3E%3Cpath d=%27M6.8 9.8L9 12L13.1 7.1%27 stroke=%27%23F5A623%27 stroke-width=%271.5%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E">
+<title>Aviso legal — VigilaMultas</title>
+<meta name="robots" content="index, follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand: #1B4D8C;
+    --brand-dark: #123A6B;
+    --brand-light: #EAF2FC;
+    --accent: #F5A623;
+    --accent-dark: #DE8E0B;
+    --ink: #182233;
+    --ink-soft: #57607A;
+    --ink-faint: #8B93A6;
+    --ok: #1F9254;
+    --ok-soft: #E6F5EC;
+    --paper: #FFFFFF;
+    --surface: #F5F8FC;
+    --line: #E3E9F2;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 6px 16px rgba(19, 41, 75, 0.08);
+    --font-head: 'Poppins', -apple-system, sans-serif;
+    --font-ui: 'IBM Plex Sans', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+      --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+    --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--paper); color: var(--ink); font-family: var(--font-ui);
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  a{ color: var(--brand); }
+  .wrap{ max-width: 1040px; margin:0 auto; padding: 0 24px; }
+  .wrap-narrow{ max-width: 760px; margin:0 auto; padding:0 24px; }
+
+  .site-header-sticky{ position: sticky; top: 0; z-index: 50; background: var(--paper); }
+  header.masthead{ padding: 16px 0; display:flex; align-items:center; justify-content:space-between; }
+  .brand{ display:flex; align-items:center; gap:9px; font-family: var(--font-head); font-weight: 700; font-size: 21px; color: var(--brand); }
+  .brand svg{ flex-shrink:0; }
+  .site-nav{ display:flex; align-items:center; gap:22px; }
+  .site-nav a{ font-size:14px; font-weight:600; color: var(--ink-soft); text-decoration:none; }
+  .site-nav a:hover, .site-nav a.active{ color: var(--brand); }
+  .nav-toggle{
+    display:none; background:none; border:none; padding:6px; cursor:pointer;
+    width:34px; height:34px; align-items:center; justify-content:center; flex-shrink:0;
+  }
+
+  .disclaimer-strip{
+    font-size: 12.5px; color: var(--ink-faint); text-align:center;
+    padding: 7px 24px; background: var(--surface); border-bottom: 1px solid var(--line);
+  }
+
+  .page-hero{ padding: 40px 0 6px; text-align:center; }
+  .eyebrow{ font-size:12px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; color: var(--brand); margin-bottom:10px; }
+  .page-hero h1{ font-family: var(--font-head); font-weight:800; font-size:30px; margin:0 0 10px; }
+  .page-hero p{ color: var(--ink-soft); font-size:14px; }
+
+  main{ padding: 30px 0 60px; }
+
+  .legal{ background: var(--paper); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding:36px; }
+  .legal h2{ font-family: var(--font-head); font-size:19px; font-weight:700; margin:32px 0 10px; color: var(--ink); }
+  .legal h2:first-child{ margin-top:0; }
+  .legal h3{ font-family: var(--font-head); font-size:15.5px; font-weight:700; margin:20px 0 8px; color: var(--ink); }
+  .legal p{ font-size:14.5px; color: var(--ink-soft); margin:0 0 14px; }
+  .legal ul, .legal ol{ font-size:14.5px; color: var(--ink-soft); margin:0 0 14px; padding-left:22px; }
+  .legal li{ margin-bottom:6px; }
+  .legal a{ color: var(--brand); text-decoration:underline; }
+  .legal table{ width:100%; border-collapse:collapse; font-size:13.5px; margin:0 0 18px; }
+  .legal th, .legal td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .legal th{ color: var(--ink-faint); font-weight:600; width:180px; }
+  .legal .note{
+    background: var(--brand-light); border-radius:10px; padding:12px 14px; font-size:13px;
+    color: var(--ink-soft); margin:0 0 18px;
+  }
+
+  footer{ padding: 24px 0 44px; font-size:12.5px; color: var(--ink-faint); text-align:center; }
+  .footer-links{ margin-top:6px; }
+  .footer-links a{ color: var(--ink-soft); text-decoration:underline; margin:0 6px; }
+
+  [hidden]{ display:none !important; }
+
+  @media (max-width: 640px){
+    .page-hero h1{ font-size:24px; }
+    header.masthead{ position:relative; }
+    .nav-toggle{ display:flex; }
+    .site-nav{
+      display:none; position:absolute; top:100%; left:0; right:0; z-index:40;
+      flex-direction:column; align-items:flex-start; gap:2px;
+      background: var(--paper); border-bottom:1px solid var(--line); box-shadow: var(--shadow-sm);
+      padding: 8px 24px 14px;
+    }
+    .site-nav.open{ display:flex; }
+    .site-nav a{ width:100%; padding:10px 0; }
+    .legal{ padding:24px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="site-header-sticky">
+  <div class="wrap">
+    <header class="masthead">
+      <span class="brand">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9.8" cy="9.8" r="5.6" stroke="var(--brand)" stroke-width="1.9"/><line x1="13.9" y1="13.9" x2="19.5" y2="19.5" stroke="var(--brand)" stroke-width="2.2" stroke-linecap="round"/><path d="M6.8 9.8L9 12L13.1 7.1" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        VigilaMultas
+      </span>
+      <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="siteNav">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <nav class="site-nav" id="siteNav">
+        <a href="index.html">Comprobar</a>
+        <a href="index.html#planes">Planes</a>
+        <a href="estadisticas.html">Estadísticas</a>
+        <a href="cuenta.html">Mi cuenta</a>
+      </nav>
+    </header>
+  </div>
+  <div class="disclaimer-strip">Servicio independiente. No es un organismo público ni está afiliado a la Administración General del Estado.</div>
+</div>
+
+<div class="page-hero wrap">
+  <div class="eyebrow">Legal</div>
+  <h1>Aviso legal</h1>
+  <p>Datos identificativos del titular del sitio y condiciones generales de uso.</p>
+</div>
+
+<main class="wrap-narrow">
+  <div class="legal">
+    <h2>1. Datos identificativos</h2>
+    <p>En cumplimiento del artículo 10 de la Ley 34/2002, de 11 de julio, de Servicios de la Sociedad de la Información y de Comercio Electrónico (LSSI-CE), se informa de los siguientes datos: el presente sitio web <strong>vigilamultas.com</strong> (en adelante, "el Sitio") es titularidad de:</p>
+    <table>
+      <tr><th>Denominación social</th><td>Witme Advertising, S.L.</td></tr>
+      <tr><th>NIF / VAT</th><td>ESB44680262</td></tr>
+      <tr><th>Domicilio social</th><td>Avda. Pablo Iglesias, 17, 28003 Madrid, España</td></tr>
+      <tr><th>Correo de contacto</th><td><a href="mailto:hola@vigilamultas.com">hola@vigilamultas.com</a></td></tr>
+    </table>
+    <div class="note">Este aviso legal recoge los datos identificativos que exige la LSSI-CE. Los datos de inscripción registral (Registro Mercantil) se completarán próximamente.</div>
+
+    <h2>2. Objeto</h2>
+    <p>VigilaMultas es un servicio de monitorización que consulta de forma automatizada el Tablón Edictal Único del Boletín Oficial del Estado (BOE) en busca de notificaciones de tráfico asociadas a un DNI, NIE o matrícula, y avisa a la persona usuaria por correo electrónico cuando encuentra una coincidencia.</p>
+    <p><strong>VigilaMultas es un servicio independiente. No es un organismo público, no está afiliado a la Dirección General de Tráfico (DGT) ni a ninguna Administración Pública, no presta asesoramiento legal y no gestiona ni presenta recursos o alegaciones en nombre de la persona usuaria.</strong></p>
+
+    <h2>3. Condiciones de acceso y uso</h2>
+    <p>El acceso a la comprobación gratuita del Sitio no requiere registro previo. La contratación de un plan de vigilancia automática y la creación de una cuenta se rigen por los <a href="terminos.html">Términos y condiciones</a>. El uso del Sitio implica la aceptación de este aviso legal, de los Términos y condiciones y de la <a href="privacidad.html">Política de privacidad</a>.</p>
+    <p>La persona usuaria se compromete a utilizar el Sitio únicamente para consultar información sobre sí misma o sobre vehículos/personas para los que tenga autorización legítima, y a no introducir datos de terceros sin dicha autorización.</p>
+
+    <h2>4. Propiedad intelectual e industrial</h2>
+    <p>El diseño del Sitio, su código fuente, logotipos, marcas y demás contenidos son propiedad de Witme Advertising, S.L. o de terceros que han autorizado su uso, y están protegidos por la normativa de propiedad intelectual e industrial. Queda prohibida su reproducción, distribución o transformación sin autorización expresa, salvo lo estrictamente necesario para el uso normal del servicio.</p>
+
+    <h2>5. Exclusión de garantías y responsabilidad</h2>
+    <p>VigilaMultas consulta una fuente pública oficial (el BOE) mediante procedimientos automatizados, pero no puede garantizar la detección del 100% de las notificaciones publicadas, ni la disponibilidad continua e ininterrumpida del Sitio, ni la ausencia de errores derivados de cambios en el formato o disponibilidad del BOE. El servicio se presta con carácter meramente informativo y de aviso; no sustituye la consulta directa del Tablón Edictal Único ni el asesoramiento de un profesional del derecho.</p>
+    <p>Witme Advertising, S.L. no será responsable de los daños y perjuicios que pudieran derivarse de la falta de disponibilidad del Sitio, de un fallo en la detección de una notificación, o del uso indebido del servicio por parte de la persona usuaria.</p>
+
+    <h2>6. Enlaces</h2>
+    <p>El Sitio puede incluir enlaces a sitios web de terceros (por ejemplo, la pasarela de pago Stripe). Witme Advertising, S.L. no se responsabiliza del contenido ni de las políticas de privacidad de dichos sitios.</p>
+
+    <h2>7. Legislación aplicable y jurisdicción</h2>
+    <p>Este aviso legal se rige por la legislación española. Para la resolución de cualquier controversia, y sin perjuicio de los derechos que la normativa de consumidores y usuarios reconoce a las personas consumidoras (que podrán acudir a los tribunales de su propio domicilio), las partes se someten a los Juzgados y Tribunales de Madrid capital.</p>
+
+  </div>
+</main>
+
+<div class="wrap">
+  <footer>
+    <p>&copy; 2026 VigilaMultas — Witme Advertising, S.L.</p>
+    <p class="footer-links">
+      <a href="aviso-legal.html">Aviso legal</a>·
+      <a href="privacidad.html">Privacidad y cookies</a>·
+      <a href="terminos.html">Términos y condiciones</a>
+    </p>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var btn = document.getElementById('navToggle');
+  var nav = document.getElementById('siteNav');
+  if(!btn || !nav) return;
+  btn.addEventListener('click', function(){
+    var open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  nav.addEventListener('click', function(e){
+    if(e.target.tagName === 'A'){ nav.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+  });
+})();
+</script>
+
+</body>
+</html>
