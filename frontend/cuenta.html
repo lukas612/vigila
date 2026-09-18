@@ -83,6 +83,7 @@
   }
   input[type="text"]:focus, input[type="email"]:focus{ outline:none; border-color: var(--brand); background: var(--paper); }
   input.invalid{ border-color: var(--alert); }
+  input:disabled{ opacity:0.55; cursor:not-allowed; }
 
   button{
     font-family: var(--font-ui); font-weight:700; font-size:14.5px; border:none;
@@ -95,6 +96,8 @@
   .btn-brand:hover{ background: var(--brand-dark); }
   .btn-ghost{ background: none; color: var(--alert); padding: 6px 10px; font-size:13px; }
   .btn-ghost:hover{ text-decoration: underline; }
+  .btn-menu{ background:none; color: var(--ink-soft); padding:6px 10px; font-size:13px; font-weight:700; }
+  .btn-menu:hover, .btn-menu[aria-expanded="true"]{ color: var(--brand); }
   .btn-link{ background:none; color: var(--ink-soft); padding:6px 0; font-size:13px; text-decoration:underline; }
 
   .consent-row{
@@ -153,11 +156,24 @@
   .plan-badge.none{ background: var(--surface); color: var(--ink-faint); }
   .plan-badge.past_due, .plan-badge.canceled{ background: var(--alert-soft); color: var(--alert); }
   .plan-options{ display:grid; grid-template-columns: 1fr 1fr; gap:14px; margin-top:18px; }
-  .plan-option{ border:1px solid var(--line); border-radius: var(--radius-sm); padding:16px; text-align:center; }
+  .plan-option{
+    position:relative; border:1.5px solid var(--line); border-radius: var(--radius-sm);
+    padding:20px 16px 16px; text-align:center; display:flex; flex-direction:column;
+  }
+  .plan-option.featured{ border-color: var(--accent); box-shadow: var(--shadow-sm); }
+  .plan-option-ribbon{
+    position:absolute; top:-11px; left:50%; transform:translateX(-50%);
+    background: var(--accent); color:#2A1B00; font-size:10.5px; font-weight:700;
+    padding:3px 11px; border-radius:20px; white-space:nowrap;
+  }
   .plan-option-name{ font-weight:700; font-size:14.5px; }
-  .plan-option-price{ font-family: var(--font-head); font-weight:800; font-size:22px; color: var(--brand); margin:6px 0 12px; }
+  .plan-option-price{ font-family: var(--font-head); font-weight:800; font-size:22px; color: var(--brand); margin:6px 0 4px; }
   .plan-option-price span{ font-size:12px; font-weight:600; color: var(--ink-faint); }
-  .plan-option button{ width:100%; }
+  .plan-option-sub{ font-size:12px; color: var(--ink-faint); margin-bottom:14px; }
+  .plan-features{ list-style:none; padding:0; margin:0 0 16px; text-align:left; font-size:13px; color: var(--ink-soft); display:flex; flex-direction:column; gap:7px; flex:1; }
+  .plan-features li{ padding-left:19px; position:relative; }
+  .plan-features li::before{ content:'✓'; color: var(--ok); font-weight:700; position:absolute; left:0; }
+  .plan-option button{ width:100%; margin-top:auto; }
   @media (max-width: 480px){ .plan-options{ grid-template-columns: 1fr; } }
 
   .empty-targets{ text-align:center; color: var(--ink-faint); font-size:14px; padding:20px 0; }
@@ -220,17 +236,31 @@
     </div>
 
     <div class="card">
-      <h2>Planes desde 3,99€/mes</h2>
-      <p class="sub">Sin permanencia, cancela cuando quieras. Elige un plan y te mandamos el enlace de acceso — al entrar seguimos directas al pago.</p>
+      <h2>Elige tu plan</h2>
+      <p class="sub">Sin permanencia, cancela cuando quieras. Elige uno y te mandamos el enlace de acceso arriba — al entrar seguimos directas al pago.</p>
       <div class="plan-options">
         <div class="plan-option">
           <div class="plan-option-name">Individual</div>
           <div class="plan-option-price">3,99€<span>/mes</span></div>
+          <div class="plan-option-sub">Para vigilar lo tuyo</div>
+          <ul class="plan-features">
+            <li>1 DNI, NIE o matrícula</li>
+            <li>Revisión automática del BOE cada día</li>
+            <li>Alerta por email en cuanto aparezca algo</li>
+          </ul>
           <button class="btn-brand" data-preplan="individual">Suscribirme</button>
         </div>
-        <div class="plan-option">
+        <div class="plan-option featured">
+          <div class="plan-option-ribbon">Recomendado</div>
           <div class="plan-option-name">Familiar / empresa</div>
           <div class="plan-option-price">6,99€<span>/mes</span></div>
+          <div class="plan-option-sub">Para varias personas o vehículos</div>
+          <ul class="plan-features">
+            <li>Hasta 5 DNIs, NIEs o matrículas</li>
+            <li>Todo lo del plan Individual</li>
+            <li>Ideal para familia, flotas o gestorías</li>
+            <li>Factura con CIF/NIF si lo necesitas</li>
+          </ul>
           <button class="btn-accent" data-preplan="familiar">Suscribirme</button>
         </div>
       </div>
@@ -242,7 +272,7 @@
       <div class="account-bar">
         <div class="account-email">Sesión iniciada como <b id="accountEmail"></b></div>
         <div class="account-menu-wrap">
-          <button class="btn-ghost" id="accountMenuBtn" aria-haspopup="true" aria-expanded="false">Mi cuenta ▾</button>
+          <button class="btn-menu" id="accountMenuBtn" aria-haspopup="true" aria-expanded="false">Mi cuenta ▾</button>
           <div class="account-menu" id="accountMenu" hidden>
             <button class="account-menu-item" id="menuBillingBtn" hidden>Facturación y suscripción</button>
             <button class="account-menu-item alert" id="logoutBtn">Cerrar sesión</button>
@@ -253,7 +283,7 @@
 
     <div class="card">
       <h2>Mi plan</h2>
-      <p class="sub">Necesitas una suscripción activa para vigilar DNI/NIE/matrículas. Gestiona el pago, cambia de plan o descarga tus facturas desde <b>Mi cuenta → Facturación y suscripción</b>.</p>
+      <p class="sub" id="planSub">Necesitas una suscripción activa para vigilar DNI/NIE/matrículas. Sin permanencia, cancela cuando quieras.</p>
       <div class="plan-status">
         <div class="plan-status-text" id="planStatusText"></div>
       </div>
@@ -261,11 +291,25 @@
         <div class="plan-option">
           <div class="plan-option-name">Individual</div>
           <div class="plan-option-price">3,99€<span>/mes</span></div>
+          <div class="plan-option-sub">Para vigilar lo tuyo</div>
+          <ul class="plan-features">
+            <li>1 DNI, NIE o matrícula</li>
+            <li>Revisión automática del BOE cada día</li>
+            <li>Alerta por email en cuanto aparezca algo</li>
+          </ul>
           <button class="btn-brand" data-subscribe="individual">Suscribirme</button>
         </div>
-        <div class="plan-option">
+        <div class="plan-option featured">
+          <div class="plan-option-ribbon">Recomendado</div>
           <div class="plan-option-name">Familiar / empresa</div>
           <div class="plan-option-price">6,99€<span>/mes</span></div>
+          <div class="plan-option-sub">Para varias personas o vehículos</div>
+          <ul class="plan-features">
+            <li>Hasta 5 DNIs, NIEs o matrículas</li>
+            <li>Todo lo del plan Individual</li>
+            <li>Ideal para familia, flotas o gestorías</li>
+            <li>Factura con CIF/NIF si lo necesitas</li>
+          </ul>
           <button class="btn-accent" data-subscribe="familiar">Suscribirme</button>
         </div>
       </div>
@@ -275,6 +319,9 @@
     <div class="card">
       <h2>Añadir vigilancia</h2>
       <p class="sub">Guarda un DNI, NIE o matrícula. Lo revisamos automáticamente y verás aquí cualquier notificación que encontremos.</p>
+      <div class="field-error" id="targetLocked" style="display:none;background:var(--surface);color:var(--ink-soft);padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:14px;">
+        🔒 Necesitas un plan activo para añadir vigilancias — elige uno arriba, en «Mi plan».
+      </div>
       <label class="field-label" for="targetValue">DNI, NIE o matrícula</label>
       <div class="field-row">
         <input type="text" id="targetValue" placeholder="Ej. 12345678A o 1234ABC" autocomplete="off">
@@ -415,16 +462,25 @@
     currentMe = me;
     const statusText = document.getElementById('planStatusText');
     const options = document.getElementById('planOptions');
+    const sub = document.getElementById('planSub');
     const menuBillingBtn = document.getElementById('menuBillingBtn');
     const badgeClass = ['active', 'trialing'].includes(me.subscription_status) ? 'active' : me.subscription_status;
     const badge = `<span class="plan-badge ${badgeClass}">${STATUS_LABELS[me.subscription_status] || me.subscription_status}</span>`;
     if(me.plan){
       statusText.innerHTML = `Plan <b>${PLAN_LABELS[me.plan] || me.plan}</b>${badge} — hasta ${me.max_targets} vigilancia${me.max_targets === 1 ? '' : 's'}`;
+      sub.innerHTML = `Gestiona el pago, cambia de plan o descarga tus facturas desde <b>Mi cuenta → Facturación y suscripción</b>.`;
     } else {
       statusText.innerHTML = `Sin suscripción activa${badge}`;
+      sub.textContent = 'Necesitas una suscripción activa para vigilar DNI/NIE/matrículas. Sin permanencia, cancela cuando quieras.';
     }
     options.hidden = me.max_targets > 0;
     menuBillingBtn.hidden = !me.plan;
+
+    const locked = me.max_targets === 0;
+    document.getElementById('targetLocked').style.display = locked ? 'block' : 'none';
+    ['targetValue', 'targetLabel', 'targetConsent', 'addTargetBtn'].forEach(id => {
+      document.getElementById(id).disabled = locked;
+    });
   }
 
   const accountMenuBtn = document.getElementById('accountMenuBtn');
