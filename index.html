@@ -74,6 +74,10 @@
     font-size:14px; font-weight:600; color: var(--ink-soft); text-decoration:none;
   }
   .site-nav a:hover, .site-nav a.active{ color: var(--brand); }
+  .nav-toggle{
+    display:none; background:none; border:none; padding:6px; cursor:pointer;
+    width:34px; height:34px; align-items:center; justify-content:center; flex-shrink:0;
+  }
 
   .disclaimer-strip{
     font-size: 12.5px; color: var(--ink-faint); text-align:center;
@@ -265,6 +269,18 @@
     .badges, .ex-grid, .feat-grid{ grid-template-columns: 1fr 1fr; }
     .feat-grid{ grid-template-columns: 1fr 1fr; }
   }
+  @media (max-width: 640px){
+    header.masthead{ position:relative; }
+    .nav-toggle{ display:flex; }
+    .site-nav{
+      display:none; position:absolute; top:100%; left:0; right:0; z-index:40;
+      flex-direction:column; align-items:flex-start; gap:2px;
+      background: var(--paper); border-bottom:1px solid var(--line); box-shadow: var(--shadow-sm);
+      padding: 8px 24px 14px;
+    }
+    .site-nav.open{ display:flex; }
+    .site-nav a{ width:100%; padding:10px 0; }
+  }
   @media (max-width: 520px){
     .hero h1{ font-size:30px; }
     .badges, .ex-grid, .feat-grid, .plan-grid{ grid-template-columns: 1fr; }
@@ -286,7 +302,10 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9.8" cy="9.8" r="5.6" stroke="var(--brand)" stroke-width="1.9"/><line x1="13.9" y1="13.9" x2="19.5" y2="19.5" stroke="var(--brand)" stroke-width="2.2" stroke-linecap="round"/><path d="M6.8 9.8L9 12L13.1 7.1" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         VigilaMultas
       </span>
-      <nav class="site-nav">
+      <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="siteNav">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <nav class="site-nav" id="siteNav">
         <a href="index.html" class="active">Comprobar</a>
         <a href="index.html#planes">Planes</a>
         <a href="estadisticas.html">Estadísticas</a>
@@ -296,13 +315,27 @@
   </div>
   <div class="disclaimer-strip">Servicio independiente. No es un organismo público ni está afiliado a la Administración General del Estado.</div>
 </div>
+<script>
+(function(){
+  var btn = document.getElementById('navToggle');
+  var nav = document.getElementById('siteNav');
+  if(!btn || !nav) return;
+  btn.addEventListener('click', function(){
+    var open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  nav.addEventListener('click', function(e){
+    if(e.target.tagName === 'A'){ nav.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+  });
+})();
+</script>
 
 <section class="hero">
   <div class="wrap hero-inner">
     <h1>¿Tienes <span class="hl">una multa</span> que no sabes que existe?</h1>
     <p class="lede">Cada día se publican en un tablón oficial miles de notificaciones de tráfico que nunca llegaron por correo. Si no se atienden a tiempo, se dan por notificadas igualmente. Compruébalo gratis en 10 segundos — sin abogados, sin trámites, sin letra pequeña.</p>
 
-    <div class="form-card">
+    <div class="form-card" id="anonCheckCard">
       <label class="field-label" for="doc">DNI, NIE o matrícula</label>
       <div class="check-row">
         <input type="text" id="doc" placeholder="Ej. 12345678A o 1234ABC" autocomplete="off">
@@ -327,6 +360,17 @@
       <div class="result" id="result">
         <div id="resultInner"></div>
       </div>
+    </div>
+
+    <div class="form-card" id="loggedInCard" hidden style="text-align:center;">
+      <div class="eyebrow" style="margin-bottom:6px;">Ya has iniciado sesión</div>
+      <h2 style="font-family:var(--font-head);font-size:22px;margin:0 0 10px;">Gestiona tus vigilancias desde tu cuenta</h2>
+      <p style="color:var(--ink-soft);font-size:14.5px;max-width:48ch;margin:0 auto 20px;">
+        Como <b id="loggedInEmail"></b> ya tienes acceso a tu panel: ahí ves el estado real de cada DNI, NIE o matrícula que vigilas, no solo una comprobación puntual.
+      </p>
+      <a class="btn-accent" href="cuenta.html" style="display:inline-flex;align-items:center;gap:8px;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700;">
+        Ir a mi cuenta
+      </a>
     </div>
   </div>
 </section>
@@ -499,6 +543,20 @@
 <script>
 (function(){
   const API_BASE = window.VIGILA_API_BASE || '';
+
+  // A logged-in visitor shouldn't run the anonymous one-off check or get
+  // asked for their email again here — that's what the account dashboard
+  // is for. Best-effort: on any failure (offline, CORS, etc.) just leave
+  // the anonymous form showing, since that's the safe default.
+  fetch(API_BASE + '/api/auth/me', { credentials: 'include' })
+    .then(resp => resp.ok ? resp.json() : null)
+    .then(me => {
+      if(!me) return;
+      document.getElementById('anonCheckCard').hidden = true;
+      document.getElementById('loggedInEmail').textContent = me.email;
+      document.getElementById('loggedInCard').hidden = false;
+    })
+    .catch(() => {});
 
   const input = document.getElementById('doc');
   const consent = document.getElementById('consent');

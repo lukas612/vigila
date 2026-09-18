@@ -56,6 +56,10 @@
   .site-nav{ display:flex; align-items:center; gap:22px; }
   .site-nav a{ font-size:14px; font-weight:600; color: var(--ink-soft); text-decoration:none; }
   .site-nav a:hover, .site-nav a.active{ color: var(--brand); }
+  .nav-toggle{
+    display:none; background:none; border:none; padding:6px; cursor:pointer;
+    width:34px; height:34px; align-items:center; justify-content:center; flex-shrink:0;
+  }
 
   .disclaimer-strip{
     font-size: 12.5px; color: var(--ink-faint); text-align:center;
@@ -187,7 +191,16 @@
   @media (max-width: 640px){
     .page-hero h1{ font-size:26px; }
     .masthead-note{ display:none; }
-    .site-nav{ gap:14px; }
+    header.masthead{ position:relative; }
+    .nav-toggle{ display:flex; }
+    .site-nav{
+      display:none; position:absolute; top:100%; left:0; right:0; z-index:40;
+      flex-direction:column; align-items:flex-start; gap:2px;
+      background: var(--paper); border-bottom:1px solid var(--line); box-shadow: var(--shadow-sm);
+      padding: 8px 24px 14px;
+    }
+    .site-nav.open{ display:flex; }
+    .site-nav a{ width:100%; padding:10px 0; }
   }
 </style>
 </head>
@@ -200,7 +213,10 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9.8" cy="9.8" r="5.6" stroke="var(--brand)" stroke-width="1.9"/><line x1="13.9" y1="13.9" x2="19.5" y2="19.5" stroke="var(--brand)" stroke-width="2.2" stroke-linecap="round"/><path d="M6.8 9.8L9 12L13.1 7.1" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         VigilaMultas
       </span>
-      <nav class="site-nav">
+      <button class="nav-toggle" id="navToggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="siteNav">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <nav class="site-nav" id="siteNav">
         <a href="index.html">Comprobar</a>
         <a href="index.html#planes">Planes</a>
         <a href="estadisticas.html">Estadísticas</a>
@@ -210,6 +226,20 @@
   </div>
   <div class="disclaimer-strip">Servicio independiente. No es un organismo público ni está afiliado a la Administración General del Estado.</div>
 </div>
+<script>
+(function(){
+  var btn = document.getElementById('navToggle');
+  var nav = document.getElementById('siteNav');
+  if(!btn || !nav) return;
+  btn.addEventListener('click', function(){
+    var open = nav.classList.toggle('open');
+    btn.setAttribute('aria-expanded', String(open));
+  });
+  nav.addEventListener('click', function(e){
+    if(e.target.tagName === 'A'){ nav.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+  });
+})();
+</script>
 
 <div class="page-hero wrap">
   <div class="eyebrow">Vigilancia automática</div>
