@@ -202,6 +202,24 @@ want watched.
    (Settings → Secrets and variables → Actions) — **must be the exact same
    value as Render's**, or the cron can't decrypt what the API encrypted.
 
+## Admin panel
+
+`admin.html` (not linked from the public nav — reachable only by URL) shows
+two things behind `/api/admin/*`:
+
+- **Usuarios**: every account, its plan/subscription/Stripe fields (all
+  empty until Stripe is wired up), and how many targets/matches it has.
+- **Comprobaciones gratuitas**: aggregate totals from `checks_free` (how
+  many checks, how many actually found a fine) plus a per-day breakdown.
+  This can only ever be counts — `checks_free.value_hash` is a one-way
+  hash, so there's no way to see *which* DNI/matrícula was checked, by
+  design.
+
+Gated by `auth.require_admin`: a logged-in user whose email isn't in the
+`ADMIN_EMAILS` env var (comma-separated) gets a 403, not a redirect — set
+it on Render to whichever email(s) should have access, matching exactly
+what they log into Vigila with.
+
 ## What's NOT implemented yet (fase 2, per the brief)
 
 - Stripe checkout + webhooks, customer portal, plan enforcement (there's a

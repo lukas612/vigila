@@ -15,6 +15,9 @@ from .db import get_db, init_db
 from .models import CheckFree, CheckResultEnum, DailyStat, MonitoredId, Notification, StatsSummary, User, WaitlistSignup
 from .rate_limit import RateLimiter, hash_identifier
 from .schemas import (
+    AdminChecksResponse,
+    AdminDayCount,
+    AdminUserOut,
     CheckRequest,
     CheckResponse,
     CreateTargetRequest,
@@ -314,6 +317,74 @@ def delete_target(
     db.delete(target)
     db.commit()
     return Response(status_code=204)
+
+
+@app.get("/api/admin/users", response_model=list[AdminUserOut])
+def admin_users(
+    _admin: auth.AuthUser = Depends(auth.require_admin), db: Session = Depends(get_db)
+) -> list[AdminUserOut]:
+    """Every account, plan/billing state, and how many targets/matches they
+    have — the profile row (see models.User) plus counts, never a
+    monitored value itself (those stay encrypted, see /api/targets)."""
+    users = db.query(User).order_by(User.created_at.desc()).all()
+    out = []
+    for u in users:
+        targets_count = db.query(MonitoredId).filter(MonitoredId.user_id == u.id).count()
+        notifications_count = (
+            db.query(Notification)
+            .join(MonitoredId, Notification.monitored_id == MonitoredId.id)
+            .filter(MonitoredId.user_id == u.id)
+            .count()
+        )
+        out.append(
+            AdminUserOut(
+                id=u.id,
+                email=u.email,
+                created_at=u.created_at.isoformat(),
+                plan=u.plan.value if u.plan else None,
+                subscription_status=u.subscription_status.value,
+                stripe_customer_id=u.stripe_customer_id,
+                targets_count=targets_count,
+                notifications_count=notifications_count,
+            )
+        )
+    return out
+
+
+@app.get("/api/admin/checks", response_model=AdminChecksResponse)
+def admin_checks(
+    _admin: auth.AuthUser = Depends(auth.require_admin), db: Session = Depends(get_db)
+) -> AdminChecksResponse:
+    """Aggregate view of the anonymous free-check funnel: how many people
+    have used it, and how many of those checks actually found a fine.
+    checks_free never stores the DNI/matrícula itself (only a hash — see
+    CheckFree's docstring), so this can only ever show counts, never who
+    checked what."""
+    rows = db.query(CheckFree.result, CheckFree.created_at).order_by(CheckFree.created_at.desc()).all()
+
+    total = len(rows)
+    found = sum(1 for r, _ in rows if r == CheckResultEnum.found)
+    not_found = sum(1 for r, _ in rows if r == CheckResultEnum.not_found)
+    error = sum(1 for r, _ in rows if r == CheckResultEnum.error)
+
+    by_day: dict[str, dict[str, int]] = {}
+    for result, created_at in rows:
+        day_key = created_at.date().isoformat()
+        bucket = by_day.setdefault(day_key, {"total": 0, "found": 0})
+        bucket["total"] += 1
+        if result == CheckResultEnum.found:
+            bucket["found"] += 1
+
+    return AdminChecksResponse(
+        total=total,
+        found=found,
+        not_found=not_found,
+        error=error,
+        by_day=[
+            AdminDayCount(day=day, total=v["total"], found=v["found"])
+            for day, v in sorted(by_day.items(), reverse=True)
+        ],
+    )
 
 
 @app.post("/api/waitlist")

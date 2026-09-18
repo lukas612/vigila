@@ -101,3 +101,28 @@ class TargetOut(BaseModel):
     created_at: str
     last_checked_at: str | None
     notifications: list[NotificationHitOut]
+
+
+class AdminUserOut(BaseModel):
+    id: str
+    email: str
+    created_at: str
+    plan: str | None
+    subscription_status: str
+    stripe_customer_id: str | None
+    targets_count: int
+    notifications_count: int
+
+
+class AdminDayCount(BaseModel):
+    day: str = Field(..., description="AAAA-MM-DD")
+    total: int
+    found: int
+
+
+class AdminChecksResponse(BaseModel):
+    total: int
+    found: int
+    not_found: int
+    error: int
+    by_day: list[AdminDayCount]

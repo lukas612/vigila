@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Vigila</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --brand: #1B4D8C;
+    --brand-dark: #123A6B;
+    --brand-light: #EAF2FC;
+    --ink: #182233;
+    --ink-soft: #57607A;
+    --ink-faint: #8B93A6;
+    --ok: #1F9254;
+    --ok-soft: #E6F5EC;
+    --alert: #D93025;
+    --alert-soft: #FCEAE9;
+    --paper: #FFFFFF;
+    --surface: #F5F8FC;
+    --line: #E3E9F2;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 6px 16px rgba(19, 41, 75, 0.08);
+    --font-head: 'Poppins', -apple-system, sans-serif;
+    --font-ui: 'IBM Plex Sans', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+      --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424; --alert-soft:#3A1A18;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper: #10151F; --surface: #171D2A; --ink: #ECEFF5; --ink-soft: #B7C0D1;
+    --ink-faint: #7C879C; --line: #232B3B; --brand-light: #16233A; --ok-soft:#123424; --alert-soft:#3A1A18;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background: var(--paper); color: var(--ink); font-family: var(--font-ui); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  a{ color: var(--brand); }
+  .wrap{ max-width: 1100px; margin:0 auto; padding: 32px 24px 60px; }
+
+  h1{ font-family: var(--font-head); font-weight:800; font-size:24px; margin:0 0 4px; }
+  .sub{ color: var(--ink-faint); font-size:13.5px; margin:0 0 30px; }
+
+  .card{ background: var(--paper); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow-sm); padding:24px; margin-bottom:24px; }
+  .card h2{ font-family: var(--font-head); font-size:17px; font-weight:700; margin:0 0 16px; }
+
+  .tiles{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:20px; }
+  .tile{ background: var(--surface); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .tile .n{ font-family: var(--font-head); font-weight:800; font-size:22px; color: var(--brand); font-variant-numeric:tabular-nums; }
+  .tile .l{ font-size:11.5px; color: var(--ink-faint); margin-top:2px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th{ text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em; color: var(--ink-faint); padding:8px 10px; border-bottom:1.5px solid var(--line); }
+  td{ padding:9px 10px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  tr:last-child td{ border-bottom:none; }
+  td.mono{ font-family: var(--font-mono); font-size:12.5px; color: var(--ink-soft); }
+  .badge{ display:inline-block; padding:2px 8px; border-radius:20px; font-size:11.5px; font-weight:600; }
+  .badge.none{ background: var(--surface); color: var(--ink-faint); }
+  .badge.active{ background: var(--ok-soft); color: var(--ok); }
+  .badge.other{ background: var(--alert-soft); color: var(--alert); }
+
+  .state{ text-align:center; padding:80px 20px; color: var(--ink-soft); }
+  .state h2{ font-family: var(--font-head); color: var(--ink); font-size:20px; margin:0 0 8px; }
+  [hidden]{ display:none !important; }
+
+  @media (max-width: 720px){
+    .tiles{ grid-template-columns: repeat(2,1fr); }
+    table{ font-size:12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <h1>Panel de administración</h1>
+  <p class="sub">Vista interna — no enlazada desde la web pública.</p>
+
+  <div class="state" id="loadingState">
+    <h2>Comprobando acceso…</h2>
+  </div>
+
+  <div class="state" id="deniedState" hidden>
+    <h2>No tienes acceso a este panel</h2>
+    <p>Inicia sesión con la cuenta de administrador en <a href="cuenta.html">Mi cuenta</a>.</p>
+  </div>
+
+  <div id="content" hidden>
+    <div class="card">
+      <h2>Comprobaciones gratuitas</h2>
+      <div class="tiles">
+        <div class="tile"><div class="n" id="cTotal">—</div><div class="l">comprobaciones</div></div>
+        <div class="tile"><div class="n" id="cFound">—</div><div class="l">con multa encontrada</div></div>
+        <div class="tile"><div class="n" id="cNotFound">—</div><div class="l">sin multa</div></div>
+        <div class="tile"><div class="n" id="cError">—</div><div class="l">con error</div></div>
+        <div class="tile"><div class="n" id="cRate">—</div><div class="l">% con multa</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Día</th><th>Comprobaciones</th><th>Con multa</th></tr></thead>
+        <tbody id="checksByDay"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Usuarios</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Email</th><th>Alta</th><th>Plan</th><th>Estado</th><th>Vigilancias</th><th>Notif. encontradas</th>
+          </tr>
+        </thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const API_BASE = window.VIGILA_API_BASE || '';
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function formatDate(iso){
+    const d = new Date(iso);
+    return isNaN(d) ? iso : d.toLocaleDateString('es-ES');
+  }
+
+  function statusBadge(status){
+    const cls = status === 'active' ? 'active' : status === 'none' ? 'none' : 'other';
+    return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
+  }
+
+  async function loadChecks(){
+    const resp = await fetch(API_BASE + '/api/admin/checks', { credentials: 'include' });
+    if(!resp.ok) throw new Error('checks fetch failed');
+    const data = await resp.json();
+    document.getElementById('cTotal').textContent = data.total.toLocaleString('es-ES');
+    document.getElementById('cFound').textContent = data.found.toLocaleString('es-ES');
+    document.getElementById('cNotFound').textContent = data.not_found.toLocaleString('es-ES');
+    document.getElementById('cError').textContent = data.error.toLocaleString('es-ES');
+    document.getElementById('cRate').textContent = data.total
+      ? Math.round((data.found / data.total) * 100) + '%'
+      : '—';
+
+    const tbody = document.getElementById('checksByDay');
+    tbody.innerHTML = data.by_day.length
+      ? data.by_day.map(d => `<tr><td>${formatDate(d.day)}</td><td>${d.total}</td><td>${d.found}</td></tr>`).join('')
+      : '<tr><td colspan="3" style="color:var(--ink-faint);">Sin datos todavía.</td></tr>';
+  }
+
+  function renderUsers(users){
+    const tbody = document.getElementById('usersBody');
+    tbody.innerHTML = users.length
+      ? users.map(u => `
+          <tr>
+            <td>${escapeHtml(u.email)}</td>
+            <td>${formatDate(u.created_at)}</td>
+            <td>${escapeHtml(u.plan || '—')}</td>
+            <td>${statusBadge(u.subscription_status)}</td>
+            <td>${u.targets_count}</td>
+            <td>${u.notifications_count}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="6" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';
+  }
+
+  async function init(){
+    try{
+      const me = await fetch(API_BASE + '/api/auth/me', { credentials: 'include' });
+      if(!me.ok) throw new Error('not logged in');
+
+      const usersResp = await fetch(API_BASE + '/api/admin/users', { credentials: 'include' });
+      if(usersResp.status === 403){
+        document.getElementById('loadingState').hidden = true;
+        document.getElementById('deniedState').hidden = false;
+        return;
+      }
+      if(!usersResp.ok) throw new Error('users fetch failed');
+
+      renderUsers(await usersResp.json());
+      await loadChecks();
+      document.getElementById('loadingState').hidden = true;
+      document.getElementById('content').hidden = false;
+    }catch(e){
+      document.getElementById('loadingState').hidden = true;
+      document.getElementById('deniedState').hidden = false;
+    }
+  }
+
+  init();
+})();
+</script>
+
+</body>
+</html>

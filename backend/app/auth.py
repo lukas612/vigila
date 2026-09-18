@@ -22,10 +22,15 @@ import os
 from dataclasses import dataclass
 
 import httpx
-from fastapi import HTTPException, Request, Response
+from fastapi import Depends, HTTPException, Request, Response
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SUPABASE_ANON_KEY = os.environ.get("SUPABASE_ANON_KEY", "")
+
+# Solo-founder admin gate: an email allowlist rather than an is_admin
+# column, since there's exactly one admin and this avoids a migration for
+# a single flag. Comma-separated, e.g. "me@example.com,cofounder@example.com".
+ADMIN_EMAILS = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
 
 ACCESS_COOKIE = "sb_access_token"
 REFRESH_COOKIE = "sb_refresh_token"
@@ -113,3 +118,12 @@ def get_current_user(request: Request, response: Response) -> AuthUser:
         return fetch_user(data["access_token"])
     except InvalidSession:
         raise HTTPException(status_code=401, detail="Tu sesión ha caducado, vuelve a acceder") from None
+
+
+def require_admin(user: AuthUser = Depends(get_current_user)) -> AuthUser:
+    """FastAPI dependency for /api/admin/* — a logged-in user who isn't on
+    ADMIN_EMAILS gets a 403, not a redirect to login (they're already
+    logged in, they're just not allowed here)."""
+    if user.email.lower() not in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="No autorizado")
+    return user
