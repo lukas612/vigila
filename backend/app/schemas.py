@@ -46,3 +46,12 @@ class DailyStatsResponse(BaseModel):
     total_expedientes: int
     total_importe: float
     localidades: list[LocalityStat]
+
+
+class WeeklyStatsResponse(BaseModel):
+    date_from: str = Field(..., description="Día más antiguo incluido en la ventana, AAAA-MM-DD")
+    date_to: str = Field(..., description="Día más reciente incluido en la ventana, AAAA-MM-DD")
+    days_included: list[str] = Field(..., description="Días con crawl que entran en la ventana, AAAA-MM-DD")
+    total_expedientes: int
+    total_importe: float
+    localidades: list[LocalityStat]

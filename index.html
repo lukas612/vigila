@@ -677,22 +677,34 @@
     });
   });
 
+  const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  function formatRangeShort(fromIso, toIso){
+    const [, fm, fd] = fromIso.split('-').map(Number);
+    const [, tm, td] = toIso.split('-').map(Number);
+    if(fromIso === toIso) return `${td} ${MESES_CORTOS[tm-1]}`;
+    if(fm === tm) return `${fd}-${td} ${MESES_CORTOS[tm-1]}`;
+    return `${fd} ${MESES_CORTOS[fm-1]}-${td} ${MESES_CORTOS[tm-1]}`;
+  }
+
   (async function loadDailyHook(){
     const section = document.getElementById('dailyHook');
     try{
-      const resp = await fetch(API_BASE + '/api/stats/latest');
+      // Últimos días con crawl (normalmente una semana), no un único día —
+      // un solo día puede caer en fin de semana (sin boletines) o coincidir
+      // con un volcado atípico de expedientes atrasados del BOE.
+      const resp = await fetch(API_BASE + '/api/stats/weekly');
       if(!resp.ok) return; // no data crawled yet — section stays hidden, page still works
       const data = await resp.json();
       if(!data.localidades || !data.localidades.length) return;
 
-      const [y, m, d] = data.stat_date.split('-');
       const formatEuros = (value) => value >= 1e6
         ? (value/1e6).toLocaleString('es-ES', {maximumFractionDigits:1}) + ' M €'
         : Math.round(value).toLocaleString('es-ES') + ' €';
+      const rango = formatRangeShort(data.date_from, data.date_to);
       document.getElementById('hookHeadline').innerHTML =
-        `El <span class="n">${d}/${m}</span> hubo <span class="n">${data.total_expedientes.toLocaleString('es-ES')}</span> sancionados`;
+        `Del <span class="n">${rango}</span> hubo <span class="n">${data.total_expedientes.toLocaleString('es-ES')}</span> sancionados`;
       document.getElementById('hookSub').textContent =
-        `${formatEuros(data.total_importe)} en multas ese día. Muchos aún no han recibido nada por correo.`;
+        `${formatEuros(data.total_importe)} en multas esa última semana. Muchos aún no han recibido nada por correo.`;
 
       const top = data.localidades.slice(0, 8);
       const max = Math.max(...top.map(l => l.expedientes_count));
@@ -708,7 +720,7 @@
         bars.appendChild(row);
       });
       document.getElementById('hookFoot').textContent =
-        'Recuento agregado por localidad — nunca mostramos expedientes ni datos de una persona concreta.';
+        'Recuento agregado por localidad de los últimos días con datos — nunca mostramos expedientes ni datos de una persona concreta.';
 
       section.hidden = false;
     }catch(e){ /* keep the section hidden; the rest of the page works regardless */ }

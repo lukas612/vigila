@@ -7,6 +7,7 @@ from datetime import date
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from . import check_service
@@ -20,6 +21,7 @@ from .schemas import (
     LocalityStat,
     NotificationOut,
     WaitlistRequest,
+    WeeklyStatsResponse,
 )
 from .validators import InvalidIdentifier, validate_identifier
 
@@ -150,6 +152,47 @@ def stats_latest(
         localidades=[
             LocalityStat(localidad=r.localidad, expedientes_count=r.expedientes_count, importe_total=r.importe_total)
             for r in rows
+        ],
+    )
+
+
+@app.get("/api/stats/weekly", response_model=WeeklyStatsResponse)
+def stats_weekly(
+    days: int = Query(7, ge=1, le=31, description="Tamaño de la ventana en días naturales con crawl"),
+    db: Session = Depends(get_db),
+) -> WeeklyStatsResponse:
+    """Aggregate-only totals per locality over the most recent `days` days that
+    have a stored crawl. Smooths out day-to-day noise (weekends with zero
+    bulletins, an occasional backlog dump) for display — the underlying daily
+    rows in `daily_stats` are untouched, so single-day drilldown (see
+    /api/stats/latest) and future re-slicing stay possible."""
+    window_dates = [
+        r[0]
+        for r in db.query(DailyStat.stat_date).distinct().order_by(DailyStat.stat_date.desc()).limit(days).all()
+    ]
+    if not window_dates:
+        raise HTTPException(status_code=404, detail="Todavía no hay datos agregados disponibles")
+
+    rows = (
+        db.query(
+            DailyStat.localidad,
+            func.sum(DailyStat.expedientes_count).label("count"),
+            func.sum(DailyStat.importe_total).label("importe"),
+        )
+        .filter(DailyStat.stat_date.in_(window_dates))
+        .group_by(DailyStat.localidad)
+        .order_by(func.sum(DailyStat.expedientes_count).desc())
+        .all()
+    )
+
+    return WeeklyStatsResponse(
+        date_from=min(window_dates).isoformat(),
+        date_to=max(window_dates).isoformat(),
+        days_included=[d.isoformat() for d in sorted(window_dates, reverse=True)],
+        total_expedientes=sum(r.count for r in rows),
+        total_importe=sum(float(r.importe or 0) for r in rows),
+        localidades=[
+            LocalityStat(localidad=r.localidad, expedientes_count=r.count, importe_total=r.importe) for r in rows
         ],
     )
 

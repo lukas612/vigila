@@ -134,8 +134,8 @@
 
 <div class="page-hero wrap">
   <div class="eyebrow">Datos agregados del BOE</div>
-  <h1>Lo que se sancionó ayer en España</h1>
-  <p>Cada día el BOE publica decenas de boletines de tráfico con miles de expedientes. Los agregamos por localidad — nunca a nivel de expediente o DNI — para que veas la magnitud real.</p>
+  <h1>Lo que se sanciona en España</h1>
+  <p>Cada día el BOE publica decenas de boletines de tráfico con miles de expedientes. Los agregamos por localidad — nunca a nivel de expediente o DNI — sobre la última semana, para que un día suelto (fin de semana sin boletines, o un volcado atípico) no distorsione la foto.</p>
 </div>
 
 <main class="wrap">
@@ -151,12 +151,12 @@
 
   <div id="statsContent" hidden>
     <div class="date-row">
-      <label for="dateSelect">Datos del día:</label>
+      <label for="dateSelect">Periodo:</label>
       <select class="date-select" id="dateSelect"></select>
     </div>
 
     <div class="tiles">
-      <div class="tile"><div class="n" id="tileExpedientes">—</div><div class="l">expedientes ese día</div></div>
+      <div class="tile"><div class="n" id="tileExpedientes">—</div><div class="l">expedientes en el periodo</div></div>
       <div class="tile"><div class="n" id="tileImporte">—</div><div class="l">en sanciones</div></div>
       <div class="tile"><div class="n" id="tileMedia">—</div><div class="l">importe medio</div></div>
       <div class="tile"><div class="n" id="tileLocalidades">—</div><div class="l">localidades distintas</div></div>
@@ -208,20 +208,19 @@
     return `${d}/${m}/${y}`;
   }
 
-  async function loadStats(dateIso){
-    const resp = await fetch(API_BASE + '/api/stats/latest?date=' + encodeURIComponent(dateIso));
-    if(!resp.ok) throw new Error('no data for ' + dateIso);
-    const data = await resp.json();
-    if(!data.localidades || !data.localidades.length) throw new Error('empty');
+  function formatRange(fromIso, toIso){
+    return fromIso === toIso ? formatDate(fromIso) : `${formatDate(fromIso)} – ${formatDate(toIso)}`;
+  }
 
+  function renderStats(data, cardSubText, footText){
     const media = data.total_importe / data.total_expedientes;
 
     document.getElementById('tileExpedientes').textContent = data.total_expedientes.toLocaleString('es-ES');
     document.getElementById('tileImporte').textContent = formatEuros(data.total_importe);
     document.getElementById('tileMedia').textContent = Math.round(media).toLocaleString('es-ES') + ' €';
     document.getElementById('tileLocalidades').textContent = data.localidades.length.toLocaleString('es-ES');
-    document.getElementById('cardSub').textContent = `Recuento de expedientes por localidad del denunciado — ${formatDate(data.stat_date)}`;
-    document.getElementById('lastUpdated').textContent = `Datos del ${formatDate(data.stat_date)}. Se añade un día nuevo cada 24h.`;
+    document.getElementById('cardSub').textContent = cardSubText;
+    document.getElementById('lastUpdated').textContent = footText;
 
     const top = data.localidades.slice(0, 40);
     const max = Math.max(...top.map(l => l.expedientes_count));
@@ -239,6 +238,36 @@
     });
   }
 
+  async function loadStats(dateIso){
+    const resp = await fetch(API_BASE + '/api/stats/latest?date=' + encodeURIComponent(dateIso));
+    if(!resp.ok) throw new Error('no data for ' + dateIso);
+    const data = await resp.json();
+    if(!data.localidades || !data.localidades.length) throw new Error('empty');
+    renderStats(
+      data,
+      `Recuento de expedientes por localidad del denunciado — ${formatDate(data.stat_date)} (un solo día)`,
+      `Datos de un único día: ${formatDate(data.stat_date)}. Puede ser un día flojo o atípico — cambia a "Última semana" para una foto más estable.`
+    );
+  }
+
+  async function loadWeekly(){
+    const resp = await fetch(API_BASE + '/api/stats/weekly');
+    if(!resp.ok) throw new Error('no weekly data');
+    const data = await resp.json();
+    if(!data.localidades || !data.localidades.length) throw new Error('empty');
+    const rango = formatRange(data.date_from, data.date_to);
+    const nDias = data.days_included.length;
+    renderStats(
+      data,
+      `Recuento de expedientes por localidad del denunciado — ${rango}`,
+      `Datos del ${rango} (${nDias} día${nDias === 1 ? '' : 's'} con crawl). Se añade un día nuevo cada 24h.`
+    );
+  }
+
+  function loadSelected(value){
+    return value === 'week' ? loadWeekly() : loadStats(value);
+  }
+
   async function init(){
     try{
       const datesResp = await fetch(API_BASE + '/api/stats/dates');
@@ -248,10 +277,11 @@
       if(!dates.length) throw new Error('no dates yet');
 
       const select = document.getElementById('dateSelect');
-      select.innerHTML = dates.map(d => `<option value="${d}">${formatDate(d)}</option>`).join('');
-      select.addEventListener('change', () => loadStats(select.value).catch(() => {}));
+      const dayOptions = dates.map(d => `<option value="${d}">${formatDate(d)}</option>`).join('');
+      select.innerHTML = `<option value="week">Última semana</option>${dayOptions}`;
+      select.addEventListener('change', () => loadSelected(select.value).catch(() => {}));
 
-      await loadStats(dates[0]); // most recent crawled day — normally "ayer"
+      await loadSelected('week'); // default: last week's aggregate, not a single noisy day
       document.getElementById('statsContent').hidden = false;
     }catch(e){
       document.getElementById('loadingState').hidden = true;
