@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from . import auth, billing, check_service, crypto, lifecycle_emails, monitoring, stats
@@ -448,13 +449,50 @@ async def billing_webhook(request: Request, db: Session = Depends(get_db)) -> di
     return {"received": True}
 
 
+def _pending_signups(db: Session, known_ids: set[str]) -> list[AdminUserOut]:
+    """Someone who requested a magic link but never clicked it never gets a
+    public.users row (see main._ensure_profile — it only ever runs from
+    /api/auth/session, right after a real login), so without this they're
+    invisible in the admin panel even though they're a real signup attempt.
+    auth.users is Supabase Auth's own identity table, in the same Postgres
+    database under a different schema — reachable because DATABASE_URL
+    connects as the `postgres` role, which owns every schema, not just
+    public. Best-effort: local dev runs on SQLite, which has no `auth`
+    schema at all, so any failure here just means an empty list, never a
+    broken admin panel."""
+    try:
+        rows = db.execute(text("SELECT id, email, created_at FROM auth.users ORDER BY created_at DESC")).all()
+    except Exception:
+        logger.warning("could not read auth.users for pending signups (expected on non-Postgres DBs)")
+        return []
+    return [
+        AdminUserOut(
+            id=str(row.id),
+            email=row.email,
+            name=None,
+            phone=None,
+            created_at=row.created_at.isoformat(),
+            plan=None,
+            subscription_status=SubscriptionStatus.none.value,
+            stripe_customer_id=None,
+            targets_count=0,
+            notifications_count=0,
+            email_confirmed=False,
+        )
+        for row in rows
+        if str(row.id) not in known_ids
+    ]
+
+
 @app.get("/api/admin/users", response_model=list[AdminUserOut])
 def admin_users(
     _admin: auth.AuthUser = Depends(auth.require_admin), db: Session = Depends(get_db)
 ) -> list[AdminUserOut]:
     """Every account, plan/billing state, and how many targets/matches they
     have — the profile row (see models.User) plus counts, never a
-    monitored value itself (those stay encrypted, see /api/targets)."""
+    monitored value itself (those stay encrypted, see /api/targets). Also
+    includes pending signups that never finished logging in — see
+    _pending_signups."""
     users = db.query(User).order_by(User.created_at.desc()).all()
     out = []
     for u in users:
@@ -477,8 +515,11 @@ def admin_users(
                 stripe_customer_id=u.stripe_customer_id,
                 targets_count=targets_count,
                 notifications_count=notifications_count,
+                email_confirmed=True,
             )
         )
+    out.extend(_pending_signups(db, {u.id for u in users}))
+    out.sort(key=lambda u: u.created_at, reverse=True)
     return out
 
 

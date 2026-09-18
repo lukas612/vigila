@@ -133,6 +133,9 @@ class AdminUserOut(BaseModel):
     stripe_customer_id: str | None
     targets_count: int
     notifications_count: int
+    email_confirmed: bool = Field(
+        True, description="False for someone who requested a magic link but never clicked it — no profile row exists yet"
+    )
 
 
 class AdminDayCount(BaseModel):

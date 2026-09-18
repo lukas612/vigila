@@ -141,7 +141,7 @@
       <table>
         <thead>
           <tr>
-            <th>Email</th><th>Nombre</th><th>Teléfono</th><th>Alta</th><th>Plan</th><th>Estado</th><th>Vigilancias</th><th>Notif. encontradas</th>
+            <th>Email</th><th>Cuenta</th><th>Nombre</th><th>Teléfono</th><th>Alta</th><th>Plan</th><th>Estado</th><th>Vigilancias</th><th>Notif. encontradas</th>
           </tr>
         </thead>
         <tbody id="usersBody"></tbody>
@@ -190,6 +190,12 @@
   function statusBadge(status){
     const cls = status === 'active' ? 'active' : status === 'none' ? 'none' : 'other';
     return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
+  }
+
+  function accountBadge(confirmed){
+    return confirmed
+      ? `<span class="badge active">confirmada</span>`
+      : `<span class="badge other">pendiente</span>`;
   }
 
   async function loadBilling(){
@@ -267,6 +273,7 @@
       ? users.map(u => `
           <tr>
             <td>${escapeHtml(u.email)}</td>
+            <td>${accountBadge(u.email_confirmed)}</td>
             <td>${escapeHtml(u.name || '—')}</td>
             <td>${escapeHtml(u.phone || '—')}</td>
             <td>${formatDate(u.created_at)}</td>
@@ -276,7 +283,7 @@
             <td>${u.notifications_count}</td>
           </tr>
         `).join('')
-      : '<tr><td colspan="8" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';
+      : '<tr><td colspan="9" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';
   }
 
   async function init(){

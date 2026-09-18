@@ -283,7 +283,16 @@ three things behind `/api/admin/*`:
   history, not a proxy for one.
 - **Usuarios**: every account, its plan/subscription/Stripe fields (now
   populated once a user subscribes — see "Billing (Stripe)"), and how many
-  targets/matches it has.
+  targets/matches it has. Also includes **pending signups**: someone who
+  requested a magic link (they exist in Supabase Auth's own `auth.users`)
+  but never clicked it, so `main._ensure_profile` never ran and there's no
+  `public.users` row for them — without `main._pending_signups` they'd be
+  completely invisible here despite being a real, trackable drop-off in the
+  login funnel. Marked with a "pendiente" badge (`email_confirmed: false`
+  in `AdminUserOut`); reads `auth.users` directly since `DATABASE_URL`
+  connects as the `postgres` role, which owns every schema. Best-effort —
+  local dev on SQLite has no `auth` schema, so this silently contributes an
+  empty list there instead of breaking the endpoint.
 - **Comprobaciones gratuitas**: aggregate totals from `checks_free` (how
   many checks, how many actually found a fine) plus a per-day breakdown.
   This can only ever be counts — `checks_free.value_hash` is a one-way
