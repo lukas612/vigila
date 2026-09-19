@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /cuenta.html
+
+Sitemap: https://vigilamultas.com/sitemap.xml
