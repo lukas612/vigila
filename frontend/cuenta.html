@@ -318,9 +318,9 @@
   <div id="loginState" hidden>
     <div class="card">
       <h2>Accede a tu cuenta</h2>
-      <p class="sub">Sin contraseña. Escribe tu email y te mandamos un enlace para entrar.</p>
-      <label class="field-label" for="loginEmail">Email</label>
-      <div class="field-row">
+      <p class="sub" id="loginSub">Sin contraseña. Escribe tu email y te mandamos un enlace para entrar.</p>
+      <label class="field-label" for="loginEmail" id="loginEmailLabel">Email</label>
+      <div class="field-row" id="loginFieldRow">
         <input type="email" id="loginEmail" placeholder="tucorreo@ejemplo.com" autocomplete="email">
         <button class="btn-brand" id="loginBtn" style="flex:0 0 auto;">Enviar enlace</button>
       </div>
@@ -816,11 +816,27 @@
     if(prefillEmail){
       document.getElementById('loginEmail').value = prefillEmail;
       // They already typed this email once, on the free-check result CTA —
-      // asking them to type it again here (and click a second button) just
-      // to get the same magic link reads as "you're asking me twice".
-      // Send it straight away instead of waiting for a manual click; a
-      // plain visit to cuenta.html (no ?email=) still gets the normal form.
-      sendMagicLink(prefillEmail, 'auto_prefill');
+      // showing the same input + button again right here would look like
+      // we ignored it. Hide the form, send the link straight away, and
+      // only bring the form back if that send fails (so they can retry
+      // with a corrected address); a plain visit to cuenta.html (no
+      // ?email=) never hits this branch and keeps the normal form.
+      const sub = document.getElementById('loginSub');
+      const label = document.getElementById('loginEmailLabel');
+      const fieldRow = document.getElementById('loginFieldRow');
+      label.hidden = true;
+      fieldRow.hidden = true;
+      sub.textContent = 'Enviando el enlace de acceso a ' + prefillEmail + '…';
+      sendMagicLink(prefillEmail, 'auto_prefill').then(ok => {
+        if(ok){
+          sub.hidden = true;
+        } else {
+          label.hidden = false;
+          fieldRow.hidden = false;
+          sub.hidden = false;
+          sub.textContent = 'Sin contraseña. Escribe tu email y te mandamos un enlace para entrar.';
+        }
+      });
     }
   }
 
