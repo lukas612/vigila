@@ -298,6 +298,21 @@ three things behind `/api/admin/*`:
   This can only ever be counts — `checks_free.value_hash` is a one-way
   hash, so there's no way to see *which* DNI/matrícula was checked, by
   design.
+- **Estadísticas del BOE**: a "Rellenar días que falten" button that backfills
+  `daily_stats` on demand. The scheduled crawl (`daily_stats.yml`) is known
+  to run hours late on this low-traffic repo — GitHub Actions deprioritizes
+  scheduled runs — so this is the manual fallback: `POST
+  /api/admin/backfill-stats` finds every day since the last crawled one (up
+  to 7) and runs `scripts.crawl_daily_stats.crawl`/`store` for each in a
+  FastAPI `BackgroundTask`, right in the web process. That's the same
+  per-day cost (~150-200 PDFs) the cron's own comment warns against doing
+  in a web request, but this is an infrequent, admin-triggered click, not
+  something a customer request ever hits, so it's an acceptable one-off
+  trade against standing up a second trigger path (e.g. a GitHub API token
+  on Render just to fire `workflow_dispatch` remotely). In-memory state
+  (`main._backfill_state`) — fine for Render's single web worker, but a
+  second replica wouldn't see another's progress. The admin page polls
+  `GET /api/admin/backfill-stats` every 3s while a run is in progress.
 - **Historial de búsquedas**: the same `checks_free` rows, but as a raw
   paginated log (`GET /api/admin/checks/list`, 20/page) instead of daily
   aggregates — date, result, and short hash-prefix "refs" for the value and

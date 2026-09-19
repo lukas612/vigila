@@ -3,9 +3,10 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from datetime import date, datetime, timedelta
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
@@ -26,7 +27,9 @@ from .models import (
     WaitlistSignup,
 )
 from .rate_limit import RateLimiter, hash_identifier
+from scripts import crawl_daily_stats
 from .schemas import (
+    AdminBackfillStatus,
     AdminBillingDayCount,
     AdminBillingResponse,
     AdminCheckOut,
@@ -599,6 +602,85 @@ def admin_checks_list(
         page_size=CHECKS_PAGE_SIZE,
         pages=pages,
     )
+
+
+# The scheduled cron (daily_stats.yml) is known to run hours late on a
+# low-traffic GitHub repo (Actions deprioritizes scheduled runs there) —
+# this is the admin panel's manual fallback: crawl straight from the web
+# process instead of waiting on GitHub's queue. It's the same heavy work
+# (~150-200 PDFs/day) the cron comment warns against doing in a web
+# request, but this is an infrequent, admin-triggered click, not something
+# a customer request ever hits, so the one-off cost on the web dyno is
+# an acceptable trade for not needing a second trigger path (e.g. a GitHub
+# API token on Render just to fire workflow_dispatch remotely).
+#
+# In-memory state — fine for a single web worker (Render's free/starter
+# plan runs one), but a second replica wouldn't see another's progress.
+_BACKFILL_MAX_DAYS = 7
+_backfill_lock = threading.Lock()
+_backfill_state: dict = {"running": False, "missing_days": [], "done_days": [], "started_at": None}
+
+
+def _missing_stat_days(db: Session) -> list[date]:
+    """Every day between the most recent daily_stats row and yesterday
+    (Europe/Madrid) with no row yet, capped to the most recent
+    _BACKFILL_MAX_DAYS. A day with no BOE bulletins (weekend/holiday)
+    never gets a row either, so this can list days that come back empty —
+    crawl_daily_stats.store already treats that as expected, not a
+    failure (see its "no bulletins" branch)."""
+    most_recent = db.query(DailyStat.stat_date).order_by(DailyStat.stat_date.desc()).limit(1).scalar()
+    yesterday = crawl_daily_stats._yesterday_madrid()
+    start = (most_recent + timedelta(days=1)) if most_recent else (yesterday - timedelta(days=_BACKFILL_MAX_DAYS - 1))
+    if start > yesterday:
+        return []
+    days = []
+    d = start
+    while d <= yesterday:
+        days.append(d)
+        d += timedelta(days=1)
+    return days[-_BACKFILL_MAX_DAYS:]
+
+
+def _run_backfill(days: list[date]) -> None:
+    for day in days:
+        try:
+            totals = crawl_daily_stats.crawl(day)
+            if totals:
+                crawl_daily_stats.store(day, totals)
+        except Exception:
+            logger.exception("admin backfill failed for %s", day)
+        finally:
+            _backfill_state["done_days"].append(day.isoformat())
+    _backfill_state["running"] = False
+
+
+@app.post("/api/admin/backfill-stats", response_model=AdminBackfillStatus)
+def admin_backfill_stats(
+    background_tasks: BackgroundTasks,
+    _admin: auth.AuthUser = Depends(auth.require_admin),
+    db: Session = Depends(get_db),
+) -> AdminBackfillStatus:
+    with _backfill_lock:
+        if _backfill_state["running"]:
+            return AdminBackfillStatus(**_backfill_state, message="Ya hay un backfill en curso.")
+
+        missing = _missing_stat_days(db)
+        if not missing:
+            return AdminBackfillStatus(running=False, message="No faltan días por procesar.")
+
+        _backfill_state.update(
+            running=True,
+            missing_days=[d.isoformat() for d in missing],
+            done_days=[],
+            started_at=datetime.utcnow().isoformat(),
+        )
+        background_tasks.add_task(_run_backfill, missing)
+        return AdminBackfillStatus(**_backfill_state, message=f"Procesando {len(missing)} día(s) en segundo plano.")
+
+
+@app.get("/api/admin/backfill-stats", response_model=AdminBackfillStatus)
+def admin_backfill_status(_admin: auth.AuthUser = Depends(auth.require_admin)) -> AdminBackfillStatus:
+    return AdminBackfillStatus(**_backfill_state)
 
 
 @app.get("/api/admin/billing", response_model=AdminBillingResponse)

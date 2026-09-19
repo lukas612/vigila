@@ -185,3 +185,11 @@ class AdminChecksPage(BaseModel):
     page: int
     page_size: int
     pages: int
+
+
+class AdminBackfillStatus(BaseModel):
+    running: bool
+    missing_days: list[str] = Field(default_factory=list, description="AAAA-MM-DD pendientes en esta tanda")
+    done_days: list[str] = Field(default_factory=list, description="AAAA-MM-DD ya procesados en esta tanda")
+    started_at: str | None = None
+    message: str | None = None
