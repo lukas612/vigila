@@ -454,11 +454,6 @@ section.cta-band{
       </div>
       <div class="field-error" id="fieldError"></div>
 
-      <label class="consent-row">
-        <input type="checkbox" id="consent">
-        <span>Acepto que VigilaMultas consulte el Tablón Edictal Único del BOE con este dato para mostrarme el resultado. Si no me suscribo, el dato no se conserva.</span>
-      </label>
-
       <div class="trust-line">
         <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="var(--ok)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Sin registro</span>
         <span><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12l4 4L19 6" stroke="var(--ok)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>No guardamos tu dato si no te suscribes</span>
@@ -769,7 +764,6 @@ section.cta-band{
   }
 
   const input = document.getElementById('doc');
-  const consent = document.getElementById('consent');
   const btn = document.getElementById('checkBtn');
   const result = document.getElementById('result');
   const inner = document.getElementById('resultInner');
@@ -914,10 +908,6 @@ section.cta-band{
     clearFieldError();
     const v = input.value.trim();
     if(!v){ input.focus(); return; }
-    if(!consent.checked){
-      showFieldError('Marca la casilla de consentimiento para poder consultar el BOE.');
-      return;
-    }
 
     if(typeof gtag === 'function'){
       gtag('event', 'conversion', {
