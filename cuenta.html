@@ -452,7 +452,7 @@
 <script>
   // This copy is served from GitHub Pages (a static host), so it always
   // needs the API's own origin — unlike the local dev copy under
-  // frontend/cuenta.html, which is served by the FastAPI app itself and
+  // frontend/index.html, which is served by the FastAPI app itself and
   // can safely default to same-origin.
   window.VIGILA_API_BASE = window.VIGILA_API_BASE || 'https://api.vigilamultas.com';
 </script>
@@ -786,25 +786,19 @@
     }
   }
 
-  function showLogin(prefillEmail){
-    document.getElementById('loadingState').hidden = true;
-    document.getElementById('dashboardState').hidden = true;
-    document.getElementById('loginState').hidden = false;
-    if(prefillEmail) document.getElementById('loginEmail').value = prefillEmail;
-  }
-
-  document.getElementById('loginBtn').addEventListener('click', async () => {
-    const emailInput = document.getElementById('loginEmail');
+  // Shared by the manual "Enviar enlace" click and the auto-send below —
+  // one place for the OTP call, its loading state, and its error/success
+  // messaging, so neither path can drift from the other.
+  async function sendMagicLink(email, source){
     const errorEl = document.getElementById('loginError');
     const okEl = document.getElementById('loginOk');
+    const btn = document.getElementById('loginBtn');
     hideError(errorEl);
     okEl.classList.remove('show');
-    const email = emailInput.value.trim();
     if(!email || !email.includes('@')){
       showError(errorEl, 'Escribe un email válido');
-      return;
+      return false;
     }
-    const btn = document.getElementById('loginBtn');
     btn.disabled = true;
     btn.textContent = 'Enviando…';
     const { error } = await supabase.auth.signInWithOtp({
@@ -815,10 +809,30 @@
     btn.textContent = 'Enviar enlace';
     if(error){
       showError(errorEl, 'No se pudo enviar el enlace. Inténtalo de nuevo en unos minutos.');
-      return;
+      return false;
     }
-    gaEvent('login', { method: 'magic_link' });
+    gaEvent('login', { method: 'magic_link', source: source || 'manual' });
     okEl.classList.add('show');
+    return true;
+  }
+
+  function showLogin(prefillEmail){
+    document.getElementById('loadingState').hidden = true;
+    document.getElementById('dashboardState').hidden = true;
+    document.getElementById('loginState').hidden = false;
+    if(prefillEmail){
+      document.getElementById('loginEmail').value = prefillEmail;
+      // They already typed this email once, on the free-check result CTA —
+      // asking them to type it again here (and click a second button) just
+      // to get the same magic link reads as "you're asking me twice".
+      // Send it straight away instead of waiting for a manual click; a
+      // plain visit to cuenta.html (no ?email=) still gets the normal form.
+      sendMagicLink(prefillEmail, 'auto_prefill');
+    }
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', () => {
+    sendMagicLink(document.getElementById('loginEmail').value.trim());
   });
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
