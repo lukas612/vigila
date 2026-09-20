@@ -511,10 +511,11 @@
     const data = await resp.json().catch(() => null);
     if(data && data.is_new_user){
       if(typeof gtag === 'function'){
+        // No value/currency here on purpose: a signup isn't a sale. Only
+        // pollPlanAfterCheckout() below reports real EUR value, and only
+        // once Stripe has actually confirmed the subscription.
         gtag('event', 'conversion', {
-          'send_to': 'AW-18459993752/FM5ECL70nvwcEJjNtOJE',
-          'value': 1.0,
-          'currency': 'EUR'
+          'send_to': 'AW-18459993752/FM5ECL70nvwcEJjNtOJE'
         });
       }
       gaEvent('sign_up', { method: 'magic_link' });

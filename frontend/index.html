@@ -910,10 +910,11 @@ section.cta-band{
     if(!v){ input.focus(); return; }
 
     if(typeof gtag === 'function'){
+      // No value/currency here on purpose: this isn't a sale, it's a lead
+      // signal. Only the real Stripe-confirmed subscription (cuenta.html)
+      // reports actual EUR value to Google Ads.
       gtag('event', 'conversion', {
-        'send_to': 'AW-18459993752/W-UTCMH0nvwcEJjNtOJE',
-        'value': 1.0,
-        'currency': 'EUR'
+        'send_to': 'AW-18459993752/W-UTCMH0nvwcEJjNtOJE'
       });
     }
     gaEvent('start_free_check');
