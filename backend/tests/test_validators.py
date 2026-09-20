@@ -10,6 +10,9 @@ from app.validators import InvalidIdentifier, validate_identifier
         ("12345678-z", "12345678Z"),
         ("x1234567l", "X1234567L"),
         ("1234 bcd", "1234BCD"),
+        ("M-1234-AB", "M1234AB"),
+        ("b1234cd", "B1234CD"),
+        ("ss-1234-a", "SS1234A"),
     ],
 )
 def test_validate_identifier_accepts_valid_formats(raw, expected):
