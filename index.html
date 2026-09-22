@@ -832,18 +832,18 @@ section.cta-band{
   function renderOk(){
     gaEvent('free_check_result', { result: 'not_found' });
     inner.innerHTML = `
-      <div class="status-line">${okIcon} Sin notificaciones pendientes</div>
-      <div class="result-body">No hemos encontrado ninguna publicación a tu nombre en el Tablón Edictal Único del BOE en este momento. Pero puede aparecer en cualquier momento — el BOE publica miles de notificaciones cada día y nunca avisan por correo.</div>
+      <div class="status-line">${okIcon} Sin notificaciones pendientes (de momento)</div>
+      <div class="result-body">Hoy no aparece nada a tu nombre — pero eso no te libra de nada. El BOE publica miles de notificaciones cada día, y pueden tardar semanas en salir publicadas desde que se comete la infracción. El plazo de 20 días para alegar empieza a correr en cuanto se publica, te enteres o no. Si vuelves a mirar dentro de un mes, puede que ya sea tarde.</div>
       <div class="cta-block">
         <ul class="plan-features">
-          <li>Revisamos el BOE por ti todos los días</li>
-          <li>Te avisamos por email en cuanto aparezca algo a tu nombre</li>
-          <li>Nunca más tienes que volver a comprobarlo tú</li>
+          <li>Te avisamos el mismo día que aparezca algo a tu nombre</li>
+          <li>No dependes de acordarte de volver a comprobarlo tú</li>
+          <li>Nunca más se te pasa un plazo por no haberte enterado</li>
         </ul>
-        <p>Actívate para que te avisemos automáticamente si aparece algo nuevo. Sin permanencia, cancela cuando quieras.</p>
+        <p>No esperes a que sea tarde. Actívate en 10 segundos — sin permanencia, cancela cuando quieras.</p>
         <div class="email-row">
           <input type="email" id="emailInput" placeholder="tu@email.com">
-          <button class="btn-brand" id="emailBtnOk">Activar aviso automático</button>
+          <button class="btn-brand" id="emailBtnOk">Avisadme si aparece algo</button>
         </div>
         <label class="consent-row">
           <input type="checkbox" id="privacyOk">
@@ -884,18 +884,18 @@ section.cta-band{
 
     inner.innerHTML = `
       <div class="status-line">${alertIcon} Tienes ${notifications.length > 1 ? notifications.length + ' notificaciones pendientes' : 'una notificación pendiente'}</div>
-      <div class="result-body">Encontrada${notifications.length > 1 ? 's' : ''} en el Suplemento de Notificaciones del BOE. Si no presentas alegaciones dentro del plazo, se da por notificada igualmente — y puede haber más que aún no han salido publicadas.</div>
+      <div class="result-body">Ya está publicada y el plazo corre, la hayas visto o no: si no alegas a tiempo, la sanción se da por firme igual. Y esto puede ser solo lo que ves aquí — puede haber más notificaciones tuyas que todavía no han salido publicadas.</div>
       ${tables}
       <div class="cta-block">
         <ul class="plan-features">
-          <li>Vigilamos este DNI o matrícula automáticamente a partir de ahora</li>
-          <li>Te avisamos por email de cualquier notificación nueva</li>
-          <li>No se te vuelve a pasar un plazo de alegación</li>
+          <li>Vigilamos este DNI o matrícula desde hoy mismo, cada día</li>
+          <li>Aviso inmediato en cuanto aparezca cualquier notificación nueva</li>
+          <li>No se te vuelve a pasar un plazo — nunca más</li>
         </ul>
-        <p>Suscríbete para que vigilemos este DNI o matrícula automáticamente y te avisemos antes de que venza el plazo. Sin permanencia, cancela cuando quieras.</p>
+        <p>Cada día que pasa es un día menos de plazo. Actívate ahora — sin permanencia, cancela cuando quieras.</p>
         <div class="email-row">
           <input type="email" id="emailInput" placeholder="tu@email.com">
-          <button class="btn-accent" id="emailBtnAlert">Suscribirme</button>
+          <button class="btn-accent" id="emailBtnAlert">Activar vigilancia ahora</button>
         </div>
         <label class="consent-row">
           <input type="checkbox" id="privacyAlert">
