@@ -152,22 +152,14 @@
 
     <div class="card">
       <h2>Usuarios</h2>
+      <p class="sub" style="margin-bottom:16px;">Incluye a quien solo dejó su email en la comprobación gratuita sin llegar a crear cuenta ("sin cuenta"), con el resultado que tenía esa comprobación.</p>
       <table>
         <thead>
           <tr>
-            <th>Email</th><th>Cuenta</th><th>Nombre</th><th>Teléfono</th><th>Alta</th><th>Plan</th><th>Estado</th><th>Vigilancias</th><th>Notif. encontradas</th><th>DNI/NIE/Matrícula</th>
+            <th>Email</th><th>Cuenta</th><th>Resultado check</th><th>Nombre</th><th>Teléfono</th><th>Alta</th><th>Plan</th><th>Estado</th><th>Vigilancias</th><th>Notif. encontradas</th><th>DNI/NIE/Matrícula</th>
           </tr>
         </thead>
         <tbody id="usersBody"></tbody>
-      </table>
-    </div>
-
-    <div class="card">
-      <h2>Emails capturados (comprobación gratuita)</h2>
-      <p class="sub" style="margin-bottom:16px;">Cada email que alguien dejó justo después de ver el resultado de su comprobación gratuita, con el resultado que tenía en ese momento y si esa persona llegó a loguearse.</p>
-      <table>
-        <thead><tr><th>Email</th><th>Resultado</th><th>Fecha</th><th>¿Se logueó?</th><th>Plan</th><th>Estado</th></tr></thead>
-        <tbody id="waitlistBody"></tbody>
       </table>
     </div>
 
@@ -215,10 +207,18 @@
     return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
   }
 
-  function accountBadge(confirmed){
+  function accountBadge(hasAccount, confirmed){
+    if(!hasAccount) return `<span class="badge other">sin cuenta</span>`;
     return confirmed
       ? `<span class="badge active">confirmada</span>`
       : `<span class="badge other">pendiente</span>`;
+  }
+
+  function freeCheckContextBadge(context){
+    if(!context) return '—';
+    return context === 'alert'
+      ? `<span class="badge found">Con multa</span>`
+      : `<span class="badge not_found">Sin multa</span>`;
   }
 
   function renderBackfillStatus(data){
@@ -330,7 +330,8 @@
       ? users.map(u => `
           <tr>
             <td>${escapeHtml(u.email)}</td>
-            <td>${accountBadge(u.email_confirmed)}</td>
+            <td>${accountBadge(u.has_account !== false, u.email_confirmed)}</td>
+            <td>${freeCheckContextBadge(u.free_check_context)}</td>
             <td>${escapeHtml(u.name || '—')}</td>
             <td>${escapeHtml(u.phone || '—')}</td>
             <td>${formatDate(u.created_at)}</td>
@@ -341,35 +342,7 @@
             <td>${(u.targets_full && u.targets_full.length) ? u.targets_full.map(escapeHtml).join(', ') : '—'}</td>
           </tr>
         `).join('')
-      : '<tr><td colspan="10" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';
-  }
-
-  function waitlistContextBadge(context){
-    return context === 'alert'
-      ? `<span class="badge found">Con multa</span>`
-      : `<span class="badge not_found">Sin multa</span>`;
-  }
-
-  function renderWaitlist(rows){
-    const tbody = document.getElementById('waitlistBody');
-    tbody.innerHTML = rows.length
-      ? rows.map(w => `
-          <tr>
-            <td>${escapeHtml(w.email)}</td>
-            <td>${waitlistContextBadge(w.context)}</td>
-            <td>${formatDateTime(w.created_at)}</td>
-            <td>${w.has_account ? '✅' : '—'}</td>
-            <td>${escapeHtml(w.plan || '—')}</td>
-            <td>${w.subscription_status ? statusBadge(w.subscription_status) : '—'}</td>
-          </tr>
-        `).join('')
-      : '<tr><td colspan="6" style="color:var(--ink-faint);">Sin emails capturados todavía.</td></tr>';
-  }
-
-  async function loadWaitlist(){
-    const resp = await fetch(API_BASE + '/api/admin/waitlist', { credentials: 'include' });
-    if(!resp.ok) throw new Error('waitlist fetch failed');
-    renderWaitlist(await resp.json());
+      : '<tr><td colspan="11" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';
   }
 
   async function init(){
@@ -387,7 +360,6 @@
 
       renderUsers(await usersResp.json());
       await loadBilling();
-      await loadWaitlist();
       await loadChecks();
       await loadChecksList(1);
       pollBackfillStatus();

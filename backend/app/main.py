@@ -39,7 +39,6 @@ from .schemas import (
     AdminChecksResponse,
     AdminDayCount,
     AdminUserOut,
-    AdminWaitlistOut,
     CheckoutRequest,
     CheckoutResponse,
     CheckRequest,
@@ -456,6 +455,20 @@ async def billing_webhook(request: Request, db: Session = Depends(get_db)) -> di
     return {"received": True}
 
 
+def _latest_waitlist_by_email(db: Session) -> dict[str, tuple[str, str, str]]:
+    """email.lower() -> (context, created_at_iso, original-cased email) for
+    that email's most recent waitlist_signups row. Used to fold the free
+    -check funnel into the Usuarios table instead of a separate one — see
+    admin_users."""
+    rows = db.query(WaitlistSignup).order_by(WaitlistSignup.created_at.desc()).all()
+    out: dict[str, tuple[str, str, str]] = {}
+    for w in rows:
+        key = w.email.lower()
+        if key not in out:  # first hit per email is the most recent, rows are already newest-first
+            out[key] = (w.context, w.created_at.isoformat(), w.email)
+    return out
+
+
 def _pending_signups(db: Session, known_ids: set[str]) -> list[AdminUserOut]:
     """Someone who requested a magic link but never clicked it never gets a
     public.users row (see main._ensure_profile — it only ever runs from
@@ -499,7 +512,12 @@ def admin_users(
     have — the profile row (see models.User) plus counts, and each
     monitored value fully decrypted (admin-only, explicitly requested —
     see AdminUserOut.targets_full). Also includes pending signups that
-    never finished logging in — see _pending_signups."""
+    never finished logging in (see _pending_signups) and, folded in on top
+    (per the account owner's request — this used to be a separate table),
+    the free-check email-capture funnel (see _latest_waitlist_by_email):
+    every row gets free_check_context if that email ever left one, and
+    anyone who left an email but never even attempted to log in gets their
+    own row with has_account=False."""
     users = db.query(User).order_by(User.created_at.desc()).all()
     out = []
     for u in users:
@@ -534,6 +552,37 @@ def admin_users(
             )
         )
     out.extend(_pending_signups(db, {u.id for u in users}))
+
+    waitlist_by_email = _latest_waitlist_by_email(db)
+    matched_emails = set()
+    for row in out:
+        key = row.email.lower()
+        hit = waitlist_by_email.get(key)
+        if hit:
+            row.free_check_context = hit[0]
+            matched_emails.add(key)
+    for key, (context, created_at, original_email) in waitlist_by_email.items():
+        if key in matched_emails:
+            continue
+        out.append(
+            AdminUserOut(
+                id=f"waitlist:{key}",
+                email=original_email,
+                name=None,
+                phone=None,
+                created_at=created_at,
+                plan=None,
+                subscription_status=SubscriptionStatus.none.value,
+                stripe_customer_id=None,
+                targets_count=0,
+                notifications_count=0,
+                targets_full=[],
+                email_confirmed=False,
+                has_account=False,
+                free_check_context=context,
+            )
+        )
+
     out.sort(key=lambda u: u.created_at, reverse=True)
     return out
 
@@ -788,36 +837,6 @@ def waitlist(payload: WaitlistRequest, db: Session = Depends(get_db)) -> dict[st
     db.add(WaitlistSignup(email=payload.email.strip().lower(), context=payload.context))
     db.commit()
     return {"ok": True}
-
-
-@app.get("/api/admin/waitlist", response_model=list[AdminWaitlistOut])
-def admin_waitlist(
-    _admin: auth.AuthUser = Depends(auth.require_admin), db: Session = Depends(get_db)
-) -> list[AdminWaitlistOut]:
-    """Links the free check someone just ran to the email they left right
-    after seeing the result — context ("ok"/"alert") is set client-side
-    from that exact check's outcome (see index.html's emailBtnOk/
-    emailBtnAlert), so it's already the "multa encontrada o no" signal,
-    no separate correlation needed. Joined against `users` (by email,
-    case-insensitive) so you can see who went on to actually log in —
-    small founder-scale dataset, so this is a plain Python join rather
-    than a SQL one."""
-    signups = db.query(WaitlistSignup).order_by(WaitlistSignup.created_at.desc()).all()
-    users_by_email = {u.email.lower(): u for u in db.query(User).all()}
-    out = []
-    for s in signups:
-        u = users_by_email.get(s.email.lower())
-        out.append(
-            AdminWaitlistOut(
-                email=s.email,
-                context=s.context,
-                created_at=s.created_at.isoformat(),
-                has_account=u is not None,
-                plan=u.plan.value if u and u.plan else None,
-                subscription_status=u.subscription_status.value if u else None,
-            )
-        )
-    return out
 
 
 # Serve the static landing page for convenience when running the whole stack

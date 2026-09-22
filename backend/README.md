@@ -283,32 +283,39 @@ three things behind `/api/admin/*`:
   history, not a proxy for one.
 - **Usuarios**: every account, its plan/subscription/Stripe fields (now
   populated once a user subscribes — see "Billing (Stripe)"), and how many
-  targets/matches it has. Also includes **pending signups**: someone who
-  requested a magic link (they exist in Supabase Auth's own `auth.users`)
-  but never clicked it, so `main._ensure_profile` never ran and there's no
-  `public.users` row for them — without `main._pending_signups` they'd be
-  completely invisible here despite being a real, trackable drop-off in the
-  login funnel. Marked with a "pendiente" badge (`email_confirmed: false`
-  in `AdminUserOut`); reads `auth.users` directly since `DATABASE_URL`
-  connects as the `postgres` role, which owns every schema. Best-effort —
-  local dev on SQLite has no `auth` schema, so this silently contributes an
-  empty list there instead of breaking the endpoint. Each row also shows
-  that user's monitored DNI/NIE/matrícula (`AdminUserOut.targets_full`),
-  fully decrypted from `MonitoredId.value_encrypted` — shown unmasked at
-  the account owner's explicit request (2026-09).
+  targets/matches it has. Three account states, folded into one table
+  (per the account owner's request — this used to be split across three):
+  - **confirmada** — a real `public.users` row exists.
+  - **pendiente**: someone who requested a magic link (they exist in
+    Supabase Auth's own `auth.users`) but never clicked it, so
+    `main._ensure_profile` never ran and there's no `public.users` row for
+    them — without `main._pending_signups` they'd be completely invisible
+    despite being a real, trackable drop-off in the login funnel. Reads
+    `auth.users` directly since `DATABASE_URL` connects as the `postgres`
+    role, which owns every schema. Best-effort — local dev on SQLite has
+    no `auth` schema, so this silently contributes an empty list there
+    instead of breaking the endpoint.
+  - **sin cuenta**: never even requested a magic link — only ever left an
+    email via the free-check waitlist capture (`WaitlistSignup`, see
+    below). `has_account: false` in `AdminUserOut`.
+
+  Every row (whichever state) also carries `free_check_context` if that
+  email ever left one via the free-check result CTA: `WaitlistSignup.context`
+  ("ok"/"alert") is set client-side from that exact check's outcome
+  (`index.html`'s `emailBtnOk`/`emailBtnAlert`), so it already doubles as
+  the "found a fine or not" signal at signup time — no separate
+  correlation between `checks_free` and `waitlist_signups` needed
+  (`main._latest_waitlist_by_email`, matched by email, case-insensitive —
+  small founder-scale dataset, so a plain Python join, not SQL). Lets the
+  account owner see the found-a-fine vs. clean funnel: who converts to a
+  confirmed account, by which starting signal.
+
+  Each row also shows that user's monitored DNI/NIE/matrícula
+  (`AdminUserOut.targets_full`), fully decrypted from
+  `MonitoredId.value_encrypted` — shown unmasked at the account owner's
+  explicit request (2026-09).
 - **Comprobaciones gratuitas**: aggregate totals from `checks_free` (how
   many checks, how many actually found a fine) plus a per-day breakdown.
-- **Emails capturados (waitlist)** (`GET /api/admin/waitlist`): every email
-  someone left right after seeing their free-check result, joined against
-  `users` (by email, case-insensitive — small founder-scale dataset, so a
-  plain Python join, not SQL) to show whether they ever logged in and
-  their plan/subscription status. `WaitlistSignup.context` ("ok"/"alert")
-  is set client-side from that exact check's outcome (`index.html`'s
-  `emailBtnOk`/`emailBtnAlert`), so it already doubles as the "found a
-  fine or not" signal at signup time — no separate correlation between
-  `checks_free` and `waitlist_signups` needed. Built so the account owner
-  can see the found-a-fine vs. clean funnel: who converts to an account,
-  by which starting signal.
 - **Estadísticas del BOE**: a "Rellenar días que falten" button that backfills
   `daily_stats` on demand. The scheduled crawl (`daily_stats.yml`) is known
   to run hours late on this low-traffic repo — GitHub Actions deprioritizes

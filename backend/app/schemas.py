@@ -140,15 +140,14 @@ class AdminUserOut(BaseModel):
     email_confirmed: bool = Field(
         True, description="False for someone who requested a magic link but never clicked it — no profile row exists yet"
     )
-
-
-class AdminWaitlistOut(BaseModel):
-    email: str
-    context: str = Field(..., description="'ok' (sin multa) o 'alert' (con multa) — resultado del check que dejó este email")
-    created_at: str
-    has_account: bool = Field(..., description="True si ese email llegó a crear una cuenta (se logueó al menos una vez)")
-    plan: str | None = None
-    subscription_status: str | None = None
+    has_account: bool = Field(
+        True,
+        description="False for someone who only ever left an email via the free-check waitlist capture — never even requested a magic link",
+    )
+    free_check_context: str | None = Field(
+        None,
+        description="'ok' (sin multa) o 'alert' (con multa) — resultado de la comprobación gratuita en el momento en que dejó su email más reciente, si lo hizo",
+    )
 
 
 class AdminDayCount(BaseModel):
