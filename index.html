@@ -201,6 +201,14 @@
   }
   .status-icon{ width:28px; height:28px; flex-shrink:0; }
   .result-body{ font-size:14.5px; color: var(--ink-soft); }
+  .result-body b{ color: var(--ink); }
+  .urgency-note{
+    display:flex; align-items:flex-start; gap:10px; background: var(--alert-soft);
+    border-left:3px solid var(--alert); border-radius:8px; padding:12px 14px;
+    margin:14px 0 4px; font-size:13.5px; color: var(--ink); line-height:1.45;
+  }
+  .urgency-note svg{ flex-shrink:0; margin-top:1px; }
+  .urgency-note b{ color: var(--alert); }
   .fine-table{ margin-top:14px; border:1px solid var(--line); border-radius: var(--radius-sm); overflow:hidden; font-size:13.5px; }
   .fine-table + .fine-table{ margin-top:10px; }
   .fine-table .row{ display:flex; justify-content:space-between; padding:10px 14px; background: var(--surface); gap:12px; }
@@ -814,6 +822,7 @@ section.cta-band{
 
   const okIcon = '<svg class="status-icon" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="12" fill="var(--ok-soft)" stroke="var(--ok)" stroke-width="1.6"/><path d="M8 13l3.5 3.5L18 9" stroke="var(--ok)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const alertIcon = '<svg class="status-icon" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="12" fill="var(--alert-soft)" stroke="var(--alert)" stroke-width="1.6"/><path d="M13 8v6" stroke="var(--alert)" stroke-width="2" stroke-linecap="round"/><circle cx="13" cy="17.5" r="1.3" fill="var(--alert)"/></svg>';
+  const clockIcon = '<svg width="18" height="18" viewBox="0 0 26 26" fill="none"><circle cx="13" cy="13" r="11" stroke="var(--alert)" stroke-width="1.8"/><path d="M13 7v6l4 3" stroke="var(--alert)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
   function showFieldError(msg){
     fieldError.textContent = msg;
@@ -832,15 +841,16 @@ section.cta-band{
   function renderOk(){
     gaEvent('free_check_result', { result: 'not_found' });
     inner.innerHTML = `
-      <div class="status-line">${okIcon} Sin notificaciones pendientes (de momento)</div>
-      <div class="result-body">Hoy no aparece nada a tu nombre — pero eso no te libra de nada. El BOE publica miles de notificaciones cada día, y pueden tardar semanas en salir publicadas desde que se comete la infracción. El plazo de 20 días para alegar empieza a correr en cuanto se publica, te enteres o no. Si vuelves a mirar dentro de un mes, puede que ya sea tarde.</div>
+      <div class="status-line">${okIcon}<span>Sin notificaciones pendientes <b>(de momento)</b></span></div>
+      <div class="result-body">Hoy no aparece nada a tu nombre — pero <b>eso no te libra de nada</b>. El BOE publica miles de notificaciones cada día, y pueden tardar semanas en salir publicadas desde que se comete la infracción.</div>
+      <div class="urgency-note">${clockIcon}<span>El plazo de <b>20 días</b> para alegar empieza a correr en cuanto se publica — <b>te enteres o no</b>. Si vuelves a mirar dentro de un mes, puede que ya sea tarde.</span></div>
       <div class="cta-block">
         <ul class="plan-features">
-          <li>Te avisamos el mismo día que aparezca algo a tu nombre</li>
+          <li><b>Te avisamos el mismo día</b> que aparezca algo a tu nombre</li>
           <li>No dependes de acordarte de volver a comprobarlo tú</li>
           <li>Nunca más se te pasa un plazo por no haberte enterado</li>
         </ul>
-        <p>No esperes a que sea tarde. Actívate en 10 segundos — sin permanencia, cancela cuando quieras.</p>
+        <p><b>No esperes a que sea tarde.</b> Actívate en 10 segundos — sin permanencia, cancela cuando quieras.</p>
         <div class="email-row">
           <input type="email" id="emailInput" placeholder="tu@email.com">
           <button class="btn-brand" id="emailBtnOk">Avisadme si aparece algo</button>
@@ -883,16 +893,17 @@ section.cta-band{
     `).join('');
 
     inner.innerHTML = `
-      <div class="status-line">${alertIcon} Tienes ${notifications.length > 1 ? notifications.length + ' notificaciones pendientes' : 'una notificación pendiente'}</div>
-      <div class="result-body">Ya está publicada y el plazo corre, la hayas visto o no: si no alegas a tiempo, la sanción se da por firme igual. Y esto puede ser solo lo que ves aquí — puede haber más notificaciones tuyas que todavía no han salido publicadas.</div>
+      <div class="status-line">${alertIcon}<span>Tienes ${notifications.length > 1 ? '<b>' + notifications.length + ' notificaciones pendientes</b>' : '<b>una notificación pendiente</b>'}</span></div>
+      <div class="result-body">Ya está publicada y esto puede ser <b>solo lo que ves aquí</b> — puede haber más notificaciones tuyas que todavía no han salido publicadas.</div>
+      <div class="urgency-note">${clockIcon}<span>El plazo corre <b>la hayas visto o no</b>. Si no alegas a tiempo, la sanción <b>se da por firme igual</b>.</span></div>
       ${tables}
       <div class="cta-block">
         <ul class="plan-features">
-          <li>Vigilamos este DNI o matrícula desde hoy mismo, cada día</li>
+          <li><b>Vigilamos este DNI o matrícula desde hoy mismo</b>, cada día</li>
           <li>Aviso inmediato en cuanto aparezca cualquier notificación nueva</li>
           <li>No se te vuelve a pasar un plazo — nunca más</li>
         </ul>
-        <p>Cada día que pasa es un día menos de plazo. Actívate ahora — sin permanencia, cancela cuando quieras.</p>
+        <p><b>Cada día que pasa es un día menos de plazo.</b> Actívate ahora — sin permanencia, cancela cuando quieras.</p>
         <div class="email-row">
           <input type="email" id="emailInput" placeholder="tu@email.com">
           <button class="btn-accent" id="emailBtnAlert">Activar vigilancia ahora</button>
