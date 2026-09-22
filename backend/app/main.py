@@ -130,6 +130,7 @@ async def check(payload: CheckRequest, request: Request, db: Session = Depends(g
         CheckFree(
             ip_hash=ip_key,
             value_hash=hash_identifier(value),
+            value_encrypted=crypto.encrypt_value(value),
             result=CheckResultEnum.found if result.found else CheckResultEnum.not_found,
         )
     )
@@ -495,10 +496,9 @@ def admin_users(
 ) -> list[AdminUserOut]:
     """Every account, plan/billing state, and how many targets/matches they
     have — the profile row (see models.User) plus counts, and each
-    monitored value decrypted-then-masked (same masking as cuenta.html's
-    own value_masked — last 3 chars only, never the full DNI/matrícula).
-    Also includes pending signups that never finished logging in — see
-    _pending_signups."""
+    monitored value fully decrypted (admin-only, explicitly requested —
+    see AdminUserOut.targets_full). Also includes pending signups that
+    never finished logging in — see _pending_signups."""
     users = db.query(User).order_by(User.created_at.desc()).all()
     out = []
     for u in users:
@@ -509,13 +509,13 @@ def admin_users(
             .filter(MonitoredId.user_id == u.id)
             .count()
         )
-        targets_masked = []
+        targets_full = []
         for t in targets:
             try:
-                targets_masked.append(_mask(crypto.decrypt_value(t.value_encrypted)))
+                targets_full.append(crypto.decrypt_value(t.value_encrypted))
             except Exception:
                 logger.exception("failed to decrypt target %s for admin listing", t.id)
-                targets_masked.append("(error)")
+                targets_full.append("(error)")
         out.append(
             AdminUserOut(
                 id=u.id,
@@ -528,7 +528,7 @@ def admin_users(
                 stripe_customer_id=u.stripe_customer_id,
                 targets_count=len(targets),
                 notifications_count=notifications_count,
-                targets_masked=targets_masked,
+                targets_full=targets_full,
                 email_confirmed=True,
             )
         )
@@ -583,11 +583,10 @@ def admin_checks_list(
     db: Session = Depends(get_db),
 ) -> AdminChecksPage:
     """Paginated raw log of the anonymous free-check funnel, newest first.
-    Same privacy constraint as /api/admin/checks: checks_free never stores
-    the DNI/matrícula itself, only a SHA-256 hash — value_ref/ip_ref are
-    just short hash prefixes, useful to notice the same identifier or IP
-    showing up repeatedly (abuse, or someone re-checking), never to
-    identify who searched what."""
+    Each row's actual DNI/NIE/matrícula is decrypted from value_encrypted
+    (see CheckFree's docstring for when/why that started being stored) —
+    None for older rows that predate it, which only have the one-way
+    value_hash (ip_ref stays hash-only either way, never the raw IP)."""
     total = db.query(CheckFree).count()
     pages = max(1, (total + CHECKS_PAGE_SIZE - 1) // CHECKS_PAGE_SIZE)
     rows = (
@@ -597,12 +596,23 @@ def admin_checks_list(
         .limit(CHECKS_PAGE_SIZE)
         .all()
     )
+
+    def _value(r: CheckFree) -> str | None:
+        if not r.value_encrypted:
+            return None
+        try:
+            return crypto.decrypt_value(r.value_encrypted)
+        except Exception:
+            logger.exception("failed to decrypt checks_free row %s", r.id)
+            return None
+
     return AdminChecksPage(
         items=[
             AdminCheckOut(
                 id=r.id,
                 created_at=r.created_at.isoformat(),
                 result=r.result.value,
+                value=_value(r),
                 value_ref=r.value_hash[:10],
                 ip_ref=r.ip_hash[:8],
             )

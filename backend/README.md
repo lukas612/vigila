@@ -293,16 +293,11 @@ three things behind `/api/admin/*`:
   connects as the `postgres` role, which owns every schema. Best-effort —
   local dev on SQLite has no `auth` schema, so this silently contributes an
   empty list there instead of breaking the endpoint. Each row also shows
-  that user's monitored DNI/NIE/matrícula (`AdminUserOut.targets_masked`),
-  decrypted from `MonitoredId.value_encrypted` and then masked the same
-  way `cuenta.html` masks it back to the user themselves (`_mask()` — last
-  3 characters only, never the full value) — the one place in the app the
-  admin endpoint deliberately un-encrypts something.
+  that user's monitored DNI/NIE/matrícula (`AdminUserOut.targets_full`),
+  fully decrypted from `MonitoredId.value_encrypted` — shown unmasked at
+  the account owner's explicit request (2026-09).
 - **Comprobaciones gratuitas**: aggregate totals from `checks_free` (how
   many checks, how many actually found a fine) plus a per-day breakdown.
-  This can only ever be counts — `checks_free.value_hash` is a one-way
-  hash, so there's no way to see *which* DNI/matrícula was checked, by
-  design.
 - **Estadísticas del BOE**: a "Rellenar días que falten" button that backfills
   `daily_stats` on demand. The scheduled crawl (`daily_stats.yml`) is known
   to run hours late on this low-traffic repo — GitHub Actions deprioritizes
@@ -326,9 +321,16 @@ three things behind `/api/admin/*`:
   crawl finishes a few minutes later on GitHub Actions.
 - **Historial de búsquedas**: the same `checks_free` rows, but as a raw
   paginated log (`GET /api/admin/checks/list`, 20/page) instead of daily
-  aggregates — date, result, and short hash-prefix "refs" for the value and
-  IP (never the DNI/matrícula itself, same privacy constraint as above),
-  useful for spotting the same identifier or IP showing up repeatedly.
+  aggregates — date, result, the decrypted DNI/NIE/matrícula, and a short
+  hash-prefix "ref" for the IP. Until 2026-09-22, `checks_free` only ever
+  stored a one-way SHA-256 hash of the searched value (irreversible by
+  design, so it could never be shown here) — the account owner explicitly
+  asked to start retaining the actual value instead, so `value_encrypted`
+  (Fernet, same key as `MonitoredId`) was added alongside the hash. Rows
+  from before that change have no `value_encrypted` and show as
+  "(sin valor)" in the admin UI. See `privacidad.html` section 2/7 for the
+  retention/legal-basis language this implies — this is now real personal
+  data of anonymous, non-account visitors, not just aggregate counts.
 
 Gated by `auth.require_admin`: a logged-in user whose email isn't in the
 `ADMIN_EMAILS` env var (comma-separated) gets a 403, not a redirect — set
@@ -392,6 +394,14 @@ See `.env.example`.
 
 ## Privacy note
 
-Per the brief: the free check never persists the raw DNI/matrícula — only a
-SHA-256 hash, for rate-limiting/analytics (`checks_free.value_hash`). Raw
-values are only ever kept in memory for the duration of a single request.
+The original brief called for the free check to never persist the raw
+DNI/matrícula — only a SHA-256 hash, for rate-limiting/analytics
+(`checks_free.value_hash`). As of 2026-09-22 this changed: the account
+owner explicitly asked to also retain the actual value (encrypted, same
+Fernet key as `MonitoredId`) so the admin panel's search history can show
+what was really searched — see `checks_free.value_encrypted` and the
+"Historial de búsquedas" entry above. `privacidad.html` (sections 2 and 7)
+was updated to match. `MonitoredId.value_encrypted` (a paying user's
+monitored target) is unaffected — that was already stored encrypted, not
+hashed, since the daily monitoring cron has to decrypt it to re-query the
+BOE.

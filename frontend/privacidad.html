@@ -161,7 +161,7 @@
       <tr><th>Cuenta y acceso</th><td>Email (acceso mediante enlace de un solo uso, sin contraseña).</td></tr>
       <tr><th>Facturación</th><td>Nombre, teléfono, dirección de facturación y, si aplica, CIF/NIF de empresa — recogidos directamente por Stripe durante el proceso de pago.</td></tr>
       <tr><th>Vigilancia automática</th><td>El DNI, NIE o matrícula que decides vigilar, cifrado en nuestra base de datos (no en texto plano) y accesible únicamente para ejecutar la comprobación automática.</td></tr>
-      <tr><th>Comprobación gratuita</th><td>El DNI/NIE/matrícula introducido se usa solo para consultar el BOE en el momento de la petición; no se almacena en texto plano, únicamente un hash de un solo sentido (SHA-256) con fines estadísticos y de límite de uso.</td></tr>
+      <tr><th>Comprobación gratuita</th><td>El DNI/NIE/matrícula introducido se usa para consultar el BOE en el momento de la petición y se conserva cifrado en nuestra base de datos (no en texto plano), junto con un hash de un solo sentido (SHA-256), con fines de estadística, límite de uso y soporte (por ejemplo, para ayudarte si nos escribes preguntando por una comprobación concreta).</td></tr>
       <tr><th>Cookies y publicidad</th><td>Cookies de medición de anuncios (Google Ads), solo si das tu consentimiento. Ver la sección de cookies más abajo.</td></tr>
     </table>
     <div class="note">Nunca pedimos ni almacenamos datos de tu tarjeta de pago — los gestiona directamente Stripe, que cumple el estándar de seguridad PCI-DSS.</div>
@@ -197,7 +197,7 @@
     <p>Algunos proveedores (Stripe, Google, Resend) tratan datos fuera del Espacio Económico Europeo. En esos casos, la transferencia se ampara en el Marco de Privacidad de Datos UE-EE.UU. (Data Privacy Framework) o en cláusulas contractuales tipo aprobadas por la Comisión Europea.</p>
 
     <h2>7. Plazo de conservación</h2>
-    <p>Conservamos tus datos mientras mantengas una cuenta activa. Si cancelas tu suscripción, conservamos los datos de facturación durante el plazo que exige la normativa fiscal y mercantil (con carácter general, 6 años); el resto de datos se suprime o se anonimiza. Los hashes de la comprobación gratuita se conservan de forma agregada, sin poder asociarse a ninguna persona.</p>
+    <p>Conservamos tus datos mientras mantengas una cuenta activa. Si cancelas tu suscripción, conservamos los datos de facturación durante el plazo que exige la normativa fiscal y mercantil (con carácter general, 6 años); el resto de datos se suprime o se anonimiza. El DNI/NIE/matrícula de una comprobación gratuita se conserva cifrado durante el tiempo necesario para las finalidades descritas en la sección 2; puedes solicitar su supresión anticipada en cualquier momento escribiendo a <a href="mailto:hola@vigilamultas.com">hola@vigilamultas.com</a>.</p>
 
     <h2>8. Tus derechos</h2>
     <p>Puedes ejercer en cualquier momento tus derechos de acceso, rectificación, supresión, oposición, limitación del tratamiento y portabilidad, escribiendo a <a href="mailto:hola@vigilamultas.com">hola@vigilamultas.com</a>. También puedes eliminar tus DNI/NIE/matrículas vigiladas directamente desde <a href="cuenta.html">Mi cuenta</a>.</p>

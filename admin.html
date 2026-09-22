@@ -164,9 +164,9 @@
 
     <div class="card">
       <h2>Historial de búsquedas</h2>
-      <p class="sub" style="margin-bottom:16px;">Comprobaciones gratuitas registradas, más recientes primero. El DNI/matrícula nunca se guarda — solo un hash irreversible (ref.), útil para detectar repeticiones o abuso desde un mismo origen.</p>
+      <p class="sub" style="margin-bottom:16px;">Comprobaciones gratuitas registradas, más recientes primero. El DNI/NIE/matrícula se guarda cifrado desde el 22/9/2026 — filas anteriores a esa fecha solo tienen un hash irreversible y aparecen como "(sin valor)".</p>
       <table>
-        <thead><tr><th>Fecha</th><th>Resultado</th><th>Ref. búsqueda</th><th>Ref. IP</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Resultado</th><th>DNI/NIE/Matrícula</th><th>Ref. IP</th></tr></thead>
         <tbody id="checksListBody"></tbody>
       </table>
       <div class="pager">
@@ -303,7 +303,7 @@
           <tr>
             <td>${formatDateTime(c.created_at)}</td>
             <td>${resultBadge(c.result)}</td>
-            <td class="mono">${escapeHtml(c.value_ref)}</td>
+            <td class="mono">${c.value ? escapeHtml(c.value) : '(sin valor · ref. ' + escapeHtml(c.value_ref) + ')'}</td>
             <td class="mono">${escapeHtml(c.ip_ref)}</td>
           </tr>
         `).join('')
@@ -336,7 +336,7 @@
             <td>${statusBadge(u.subscription_status)}</td>
             <td>${u.targets_count}</td>
             <td>${u.notifications_count}</td>
-            <td>${(u.targets_masked && u.targets_masked.length) ? u.targets_masked.map(escapeHtml).join(', ') : '—'}</td>
+            <td>${(u.targets_full && u.targets_full.length) ? u.targets_full.map(escapeHtml).join(', ') : '—'}</td>
           </tr>
         `).join('')
       : '<tr><td colspan="10" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';

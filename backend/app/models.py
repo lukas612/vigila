@@ -101,8 +101,18 @@ class MonitoredId(Base):
 class CheckFree(Base):
     """Anonymous free-check log for rate limiting/analytics.
 
-    Per the brief's privacy section: never store the raw DNI/matricula here,
-    only a hash, unless the user goes on to subscribe.
+    value_hash is a one-way SHA-256, kept for fast dedup/abuse checks
+    (rate_limit.hash_identifier) — it can never be reversed to the
+    original DNI/matrícula.
+
+    value_encrypted (added 2026-09) is the same value, reversibly
+    encrypted with crypto.encrypt_value (the same Fernet key used for
+    MonitoredId), so the admin panel's search history can show what was
+    actually searched — see admin_checks_list. Nullable because rows
+    created before this field existed have no value here. Explicit
+    account-owner decision to start retaining this for anonymous
+    checks too, not just paying users' monitored targets — see the
+    privacy policy (privacidad.html) for the retention this implies.
     """
 
     __tablename__ = "checks_free"
@@ -111,6 +121,7 @@ class CheckFree(Base):
     ip_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     fingerprint_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     value_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    value_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     result: Mapped[CheckResultEnum] = mapped_column(Enum(CheckResultEnum), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
 

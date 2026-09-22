@@ -133,9 +133,9 @@ class AdminUserOut(BaseModel):
     stripe_customer_id: str | None
     targets_count: int
     notifications_count: int
-    targets_masked: list[str] = Field(
+    targets_full: list[str] = Field(
         default_factory=list,
-        description="Decrypted-then-masked (last 3 chars) DNI/NIE/matrícula per monitored target — same masking as cuenta.html, never the full value",
+        description="Fully decrypted DNI/NIE/matrícula per monitored target — admin-only view, shown unmasked at the account owner's explicit request",
     )
     email_confirmed: bool = Field(
         True, description="False for someone who requested a magic link but never clicked it — no profile row exists yet"
@@ -177,8 +177,12 @@ class AdminCheckOut(BaseModel):
     id: str
     created_at: str
     result: str
+    value: str | None = Field(
+        None,
+        description="DNI/NIE/matrícula consultado, descifrado. None para filas anteriores a que empezáramos a guardarlo (solo tienen el hash).",
+    )
     value_ref: str = Field(
-        ..., description="Primeros caracteres del hash del valor consultado — nunca el DNI/matrícula real"
+        ..., description="Primeros caracteres del hash del valor consultado — útil si 'value' es None"
     )
     ip_ref: str = Field(..., description="Primeros caracteres del hash de IP, para detectar abuso desde un mismo origen")
 
