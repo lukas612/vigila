@@ -163,6 +163,15 @@
     </div>
 
     <div class="card">
+      <h2>Emails capturados (comprobación gratuita)</h2>
+      <p class="sub" style="margin-bottom:16px;">Cada email que alguien dejó justo después de ver el resultado de su comprobación gratuita, con el resultado que tenía en ese momento y si esa persona llegó a loguearse.</p>
+      <table>
+        <thead><tr><th>Email</th><th>Resultado</th><th>Fecha</th><th>¿Se logueó?</th><th>Plan</th><th>Estado</th></tr></thead>
+        <tbody id="waitlistBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
       <h2>Historial de búsquedas</h2>
       <p class="sub" style="margin-bottom:16px;">Comprobaciones gratuitas registradas, más recientes primero. El DNI/NIE/matrícula se guarda cifrado desde el 22/9/2026 — filas anteriores a esa fecha solo tienen un hash irreversible y aparecen como "(sin valor)".</p>
       <table>
@@ -342,6 +351,34 @@
       : '<tr><td colspan="10" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';
   }
 
+  function waitlistContextBadge(context){
+    return context === 'alert'
+      ? `<span class="badge found">Con multa</span>`
+      : `<span class="badge not_found">Sin multa</span>`;
+  }
+
+  function renderWaitlist(rows){
+    const tbody = document.getElementById('waitlistBody');
+    tbody.innerHTML = rows.length
+      ? rows.map(w => `
+          <tr>
+            <td>${escapeHtml(w.email)}</td>
+            <td>${waitlistContextBadge(w.context)}</td>
+            <td>${formatDateTime(w.created_at)}</td>
+            <td>${w.has_account ? '✅' : '—'}</td>
+            <td>${escapeHtml(w.plan || '—')}</td>
+            <td>${w.subscription_status ? statusBadge(w.subscription_status) : '—'}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="6" style="color:var(--ink-faint);">Sin emails capturados todavía.</td></tr>';
+  }
+
+  async function loadWaitlist(){
+    const resp = await fetch(API_BASE + '/api/admin/waitlist', { credentials: 'include' });
+    if(!resp.ok) throw new Error('waitlist fetch failed');
+    renderWaitlist(await resp.json());
+  }
+
   async function init(){
     try{
       const me = await fetch(API_BASE + '/api/auth/me', { credentials: 'include' });
@@ -357,6 +394,7 @@
 
       renderUsers(await usersResp.json());
       await loadBilling();
+      await loadWaitlist();
       await loadChecks();
       await loadChecksList(1);
       pollBackfillStatus();

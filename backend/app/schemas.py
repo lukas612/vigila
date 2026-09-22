@@ -142,6 +142,15 @@ class AdminUserOut(BaseModel):
     )
 
 
+class AdminWaitlistOut(BaseModel):
+    email: str
+    context: str = Field(..., description="'ok' (sin multa) o 'alert' (con multa) — resultado del check que dejó este email")
+    created_at: str
+    has_account: bool = Field(..., description="True si ese email llegó a crear una cuenta (se logueó al menos una vez)")
+    plan: str | None = None
+    subscription_status: str | None = None
+
+
 class AdminDayCount(BaseModel):
     day: str = Field(..., description="AAAA-MM-DD")
     total: int

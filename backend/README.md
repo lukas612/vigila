@@ -298,6 +298,17 @@ three things behind `/api/admin/*`:
   the account owner's explicit request (2026-09).
 - **Comprobaciones gratuitas**: aggregate totals from `checks_free` (how
   many checks, how many actually found a fine) plus a per-day breakdown.
+- **Emails capturados (waitlist)** (`GET /api/admin/waitlist`): every email
+  someone left right after seeing their free-check result, joined against
+  `users` (by email, case-insensitive — small founder-scale dataset, so a
+  plain Python join, not SQL) to show whether they ever logged in and
+  their plan/subscription status. `WaitlistSignup.context` ("ok"/"alert")
+  is set client-side from that exact check's outcome (`index.html`'s
+  `emailBtnOk`/`emailBtnAlert`), so it already doubles as the "found a
+  fine or not" signal at signup time — no separate correlation between
+  `checks_free` and `waitlist_signups` needed. Built so the account owner
+  can see the found-a-fine vs. clean funnel: who converts to an account,
+  by which starting signal.
 - **Estadísticas del BOE**: a "Rellenar días que falten" button that backfills
   `daily_stats` on demand. The scheduled crawl (`daily_stats.yml`) is known
   to run hours late on this low-traffic repo — GitHub Actions deprioritizes

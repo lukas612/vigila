@@ -39,6 +39,7 @@ from .schemas import (
     AdminChecksResponse,
     AdminDayCount,
     AdminUserOut,
+    AdminWaitlistOut,
     CheckoutRequest,
     CheckoutResponse,
     CheckRequest,
@@ -787,6 +788,36 @@ def waitlist(payload: WaitlistRequest, db: Session = Depends(get_db)) -> dict[st
     db.add(WaitlistSignup(email=payload.email.strip().lower(), context=payload.context))
     db.commit()
     return {"ok": True}
+
+
+@app.get("/api/admin/waitlist", response_model=list[AdminWaitlistOut])
+def admin_waitlist(
+    _admin: auth.AuthUser = Depends(auth.require_admin), db: Session = Depends(get_db)
+) -> list[AdminWaitlistOut]:
+    """Links the free check someone just ran to the email they left right
+    after seeing the result — context ("ok"/"alert") is set client-side
+    from that exact check's outcome (see index.html's emailBtnOk/
+    emailBtnAlert), so it's already the "multa encontrada o no" signal,
+    no separate correlation needed. Joined against `users` (by email,
+    case-insensitive) so you can see who went on to actually log in —
+    small founder-scale dataset, so this is a plain Python join rather
+    than a SQL one."""
+    signups = db.query(WaitlistSignup).order_by(WaitlistSignup.created_at.desc()).all()
+    users_by_email = {u.email.lower(): u for u in db.query(User).all()}
+    out = []
+    for s in signups:
+        u = users_by_email.get(s.email.lower())
+        out.append(
+            AdminWaitlistOut(
+                email=s.email,
+                context=s.context,
+                created_at=s.created_at.isoformat(),
+                has_account=u is not None,
+                plan=u.plan.value if u and u.plan else None,
+                subscription_status=u.subscription_status.value if u else None,
+            )
+        )
+    return out
 
 
 # Serve the static landing page for convenience when running the whole stack
