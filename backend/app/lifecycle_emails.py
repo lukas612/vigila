@@ -91,7 +91,7 @@ def _content_welcome_no_plan_0(user: User) -> tuple[str, str]:
             "Te avisamos por email en cuanto aparezca algo a tu nombre",
             "No se te pasa el plazo de 20 días para alegar",
         ])}
-        <p>Desde <b>3,99€/mes</b>. Sin permanencia, cancela cuando quieras.</p>
+        <p>Desde <b>1,99€/mes</b>. Sin permanencia, cancela cuando quieras.</p>
         {_button(CUENTA_URL, "Activar mi vigilancia")}
         """
     return "Ya tienes cuenta en VigilaMultas — falta un paso", inner
@@ -109,7 +109,7 @@ def _content_welcome_no_plan_2(user: User) -> tuple[str, str]:
         <p>Cada semana se publican miles de notificaciones de tráfico en el Tablón Edictal Único — la mayoría de gente ni sabe que existe.</p>
         <p>Nosotros lo comprobamos por ti dos veces al día. Tú solo tienes que activarte una vez.</p>
         <p style="font-size:13px;color:#57607A;">Sin permanencia. Cancelas cuando quieras, con un clic.</p>
-        {_button(PLANES_URL, "Ver planes desde 3,99€/mes")}
+        {_button(PLANES_URL, "Ver planes desde 1,99€/mes")}
         """
     return "El BOE no avisa por correo. Nosotros sí.", inner
 
@@ -139,7 +139,7 @@ def _content_welcome_no_plan_10(user: User) -> tuple[str, str]:
     inner = f"""
         <h2 style="color:#1B4D8C;margin-bottom:4px;">Vamos a dejar de recordártelo — última vez</h2>
         <p>No te vamos a insistir más después de este correo. Tu cuenta sigue abierta, pero sin plan activo no estamos revisando nada por ti.</p>
-        <p>Si es cuestión de precio: el plan Individual son <b>3,99€/mes, sin permanencia</b>. Si es por confianza: cancelas cuando quieras desde tu cuenta, sin llamadas ni letra pequeña.</p>
+        <p>Si es cuestión de precio: el plan Individual son <b>1,99€/mes, sin permanencia</b>. Si es por confianza: cancelas cuando quieras desde tu cuenta, sin llamadas ni letra pequeña.</p>
         {_button(CUENTA_URL, "Activar mi vigilancia")}
         """
     return "Vamos a dejar de recordártelo — última vez", inner

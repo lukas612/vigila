@@ -52,7 +52,7 @@ PLAN_TARGET_LIMITS = {
 # could differ after a discount/coupon). Good enough for a founder-scale
 # dashboard; pull real invoice totals from Stripe if that gap ever matters.
 PLAN_PRICES_EUR = {
-    Plan.individual: 3.99,
+    Plan.individual: 1.99,
     Plan.familiar: 6.99,
 }
 
