@@ -1037,15 +1037,21 @@ section.cta-band{
     });
   });
 
+  // Shared by loadDailyHook and initSocialProof below — both want the same
+  // 7-day window, so one fetch (cheap: served from a precomputed cache row,
+  // not a live aggregation) instead of firing it twice per page load.
+  const weeklyStatsPromise = fetch(API_BASE + '/api/stats/weekly')
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null);
+
   (async function loadDailyHook(){
     const section = document.getElementById('dailyHook');
     try{
       // Últimos días con crawl (normalmente una semana), no un único día —
       // un solo día puede caer en fin de semana (sin boletines) o coincidir
       // con un volcado atípico de expedientes atrasados del BOE.
-      const resp = await fetch(API_BASE + '/api/stats/weekly');
-      if(!resp.ok) return; // no data crawled yet — section stays hidden, page still works
-      const data = await resp.json();
+      const data = await weeklyStatsPromise;
+      if(!data) return; // no data crawled yet — section stays hidden, page still works
       if(!data.localidades || !data.localidades.length) return;
 
       const formatEuros = (value) => value >= 1e6
@@ -1092,7 +1098,7 @@ section.cta-band{
 
     try{
       var results = await Promise.allSettled([
-        fetch(API_BASE + '/api/stats/weekly').then(r => r.ok ? r.json() : null),
+        weeklyStatsPromise,
         fetch(API_BASE + '/api/social-proof').then(r => r.ok ? r.json() : null),
       ]);
       var s = results[0].status === 'fulfilled' ? results[0].value : null;
