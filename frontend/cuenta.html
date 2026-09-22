@@ -511,11 +511,16 @@
     const data = await resp.json().catch(() => null);
     if(data && data.is_new_user){
       if(typeof gtag === 'function'){
-        // No value/currency here on purpose: a signup isn't a sale. Only
-        // pollPlanAfterCheckout() below reports real EUR value, and only
-        // once Stripe has actually confirmed the subscription.
+        // Explicit 0, not omitted: the conversion action has a fallback
+        // value configured in Google Ads (from when we used to send 1.0
+        // here), so leaving 'value' out entirely made Google apply that
+        // fallback instead of recording no value. A signup isn't a sale —
+        // only pollPlanAfterCheckout() below reports real EUR value, and
+        // only once Stripe has actually confirmed the subscription.
         gtag('event', 'conversion', {
-          'send_to': 'AW-18459993752/FM5ECL70nvwcEJjNtOJE'
+          'send_to': 'AW-18459993752/FM5ECL70nvwcEJjNtOJE',
+          'value': 0,
+          'currency': 'EUR'
         });
       }
       gaEvent('sign_up', { method: 'magic_link' });

@@ -953,11 +953,16 @@ section.cta-band{
     if(!v){ input.focus(); return; }
 
     if(typeof gtag === 'function'){
-      // No value/currency here on purpose: this isn't a sale, it's a lead
-      // signal. Only the real Stripe-confirmed subscription (cuenta.html)
-      // reports actual EUR value to Google Ads.
+      // Explicit 0, not omitted: the conversion action has a fallback
+      // value configured in Google Ads (from when we used to send 1.0
+      // here), so leaving 'value' out entirely made Google apply that
+      // fallback instead of recording no value. Only the real
+      // Stripe-confirmed subscription (cuenta.html) reports actual EUR
+      // value to Google Ads.
       gtag('event', 'conversion', {
-        'send_to': 'AW-18459993752/W-UTCMH0nvwcEJjNtOJE'
+        'send_to': 'AW-18459993752/W-UTCMH0nvwcEJjNtOJE',
+        'value': 0,
+        'currency': 'EUR'
       });
     }
     gaEvent('start_free_check');
