@@ -155,7 +155,7 @@
       <table>
         <thead>
           <tr>
-            <th>Email</th><th>Cuenta</th><th>Nombre</th><th>Teléfono</th><th>Alta</th><th>Plan</th><th>Estado</th><th>Vigilancias</th><th>Notif. encontradas</th>
+            <th>Email</th><th>Cuenta</th><th>Nombre</th><th>Teléfono</th><th>Alta</th><th>Plan</th><th>Estado</th><th>Vigilancias</th><th>Notif. encontradas</th><th>DNI/NIE/Matrícula</th>
           </tr>
         </thead>
         <tbody id="usersBody"></tbody>
@@ -336,9 +336,10 @@
             <td>${statusBadge(u.subscription_status)}</td>
             <td>${u.targets_count}</td>
             <td>${u.notifications_count}</td>
+            <td>${(u.targets_masked && u.targets_masked.length) ? u.targets_masked.map(escapeHtml).join(', ') : '—'}</td>
           </tr>
         `).join('')
-      : '<tr><td colspan="9" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';
+      : '<tr><td colspan="10" style="color:var(--ink-faint);">Sin usuarios todavía.</td></tr>';
   }
 
   async function init(){

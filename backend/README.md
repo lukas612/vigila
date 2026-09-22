@@ -292,7 +292,12 @@ three things behind `/api/admin/*`:
   in `AdminUserOut`); reads `auth.users` directly since `DATABASE_URL`
   connects as the `postgres` role, which owns every schema. Best-effort —
   local dev on SQLite has no `auth` schema, so this silently contributes an
-  empty list there instead of breaking the endpoint.
+  empty list there instead of breaking the endpoint. Each row also shows
+  that user's monitored DNI/NIE/matrícula (`AdminUserOut.targets_masked`),
+  decrypted from `MonitoredId.value_encrypted` and then masked the same
+  way `cuenta.html` masks it back to the user themselves (`_mask()` — last
+  3 characters only, never the full value) — the one place in the app the
+  admin endpoint deliberately un-encrypts something.
 - **Comprobaciones gratuitas**: aggregate totals from `checks_free` (how
   many checks, how many actually found a fine) plus a per-day breakdown.
   This can only ever be counts — `checks_free.value_hash` is a one-way

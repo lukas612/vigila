@@ -133,6 +133,10 @@ class AdminUserOut(BaseModel):
     stripe_customer_id: str | None
     targets_count: int
     notifications_count: int
+    targets_masked: list[str] = Field(
+        default_factory=list,
+        description="Decrypted-then-masked (last 3 chars) DNI/NIE/matrícula per monitored target — same masking as cuenta.html, never the full value",
+    )
     email_confirmed: bool = Field(
         True, description="False for someone who requested a magic link but never clicked it — no profile row exists yet"
     )

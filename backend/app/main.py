@@ -494,20 +494,28 @@ def admin_users(
     _admin: auth.AuthUser = Depends(auth.require_admin), db: Session = Depends(get_db)
 ) -> list[AdminUserOut]:
     """Every account, plan/billing state, and how many targets/matches they
-    have — the profile row (see models.User) plus counts, never a
-    monitored value itself (those stay encrypted, see /api/targets). Also
-    includes pending signups that never finished logging in — see
+    have — the profile row (see models.User) plus counts, and each
+    monitored value decrypted-then-masked (same masking as cuenta.html's
+    own value_masked — last 3 chars only, never the full DNI/matrícula).
+    Also includes pending signups that never finished logging in — see
     _pending_signups."""
     users = db.query(User).order_by(User.created_at.desc()).all()
     out = []
     for u in users:
-        targets_count = db.query(MonitoredId).filter(MonitoredId.user_id == u.id).count()
+        targets = db.query(MonitoredId).filter(MonitoredId.user_id == u.id).all()
         notifications_count = (
             db.query(Notification)
             .join(MonitoredId, Notification.monitored_id == MonitoredId.id)
             .filter(MonitoredId.user_id == u.id)
             .count()
         )
+        targets_masked = []
+        for t in targets:
+            try:
+                targets_masked.append(_mask(crypto.decrypt_value(t.value_encrypted)))
+            except Exception:
+                logger.exception("failed to decrypt target %s for admin listing", t.id)
+                targets_masked.append("(error)")
         out.append(
             AdminUserOut(
                 id=u.id,
@@ -518,8 +526,9 @@ def admin_users(
                 plan=u.plan.value if u.plan else None,
                 subscription_status=u.subscription_status.value,
                 stripe_customer_id=u.stripe_customer_id,
-                targets_count=targets_count,
+                targets_count=len(targets),
                 notifications_count=notifications_count,
+                targets_masked=targets_masked,
                 email_confirmed=True,
             )
         )
