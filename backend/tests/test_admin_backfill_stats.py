@@ -1,9 +1,12 @@
 """The scheduled daily_stats.yml cron is known to run hours late on this
 low-traffic repo (GitHub Actions deprioritizes scheduled runs) — the admin
-panel's manual backfill button is the fallback. main._missing_stat_days and
-the /api/admin/backfill-stats endpoints must correctly find the gap, run
-it in the background, and never double-run while one is already in
-progress. See main.py's comment above _BACKFILL_MAX_DAYS."""
+panel's manual backfill button is the fallback. It dispatches the same
+GitHub Actions workflow (workflow_dispatch) rather than crawling PDFs
+in-process — an earlier in-process version OOM'd the Render web service.
+main._missing_stat_days and the /api/admin/backfill-stats endpoints must
+correctly find the gap, dispatch it in the background, and never
+double-run while one is already in progress. See main.py's comment above
+_BACKFILL_MAX_DAYS."""
 from __future__ import annotations
 
 import os
@@ -43,8 +46,11 @@ def db_session():
 @pytest.fixture()
 def client():
     main.app.dependency_overrides[auth.require_admin] = lambda: auth.AuthUser(id="admin", email="admin@test.com")
+    old_token = main.GITHUB_ACTIONS_TOKEN
+    main.GITHUB_ACTIONS_TOKEN = "fake-token-for-tests"
     yield TestClient(main.app)
     main.app.dependency_overrides.pop(auth.require_admin, None)
+    main.GITHUB_ACTIONS_TOKEN = old_token
 
 
 def _wait_until_idle(client, timeout=2.0):
@@ -83,32 +89,53 @@ def test_missing_stat_days_empty_when_already_up_to_date(db_session):
     assert main._missing_stat_days(db_session) == []
 
 
-def test_backfill_endpoint_crawls_each_missing_day_and_skips_no_bulletin_days(db_session, client):
+def test_backfill_endpoint_dispatches_a_workflow_run_per_missing_day(db_session, client):
+    """The endpoint must never crawl PDFs itself (that OOM'd the web
+    service before) — it only fires workflow_dispatch once per missing day
+    and lets GitHub's runner do the actual crawling."""
     yesterday = crawl_daily_stats._yesterday_madrid()
     seed_day = yesterday - timedelta(days=2)
     db_session.add(DailyStat(stat_date=seed_day, localidad="MADRID", expedientes_count=1, importe_total=10.0))
     db_session.commit()
 
-    no_bulletin_day = seed_day + timedelta(days=1)
+    expected_day_1 = (seed_day + timedelta(days=1)).isoformat()
+    expected_day_2 = yesterday.isoformat()
+    dispatched_dates = []
 
-    def fake_crawl(day):
-        if day == no_bulletin_day:
-            return {}
-        return {"MADRID": crawl_daily_stats.LocalityTotals(count=2, importe=50.0)}
+    class _FakeResponse:
+        def raise_for_status(self):
+            pass
 
-    with patch("scripts.crawl_daily_stats.crawl", side_effect=fake_crawl):
+    def fake_post(url, headers=None, json=None, timeout=None):
+        assert "workflows/daily_stats.yml/dispatches" in url
+        assert headers["Authorization"] == "Bearer fake-token-for-tests"
+        dispatched_dates.append(json["inputs"]["date"])
+        return _FakeResponse()
+
+    with patch("app.main.httpx.post", side_effect=fake_post) as mock_post:
         resp = client.post("/api/admin/backfill-stats")
         assert resp.status_code == 200
         data = resp.json()
         assert data["running"] is True
-        assert data["missing_days"] == [no_bulletin_day.isoformat(), yesterday.isoformat()]
+        assert data["missing_days"] == [expected_day_1, expected_day_2]
 
         status = _wait_until_idle(client)
 
+    assert mock_post.call_count == 2
+    assert sorted(dispatched_dates) == sorted([expected_day_1, expected_day_2])
     assert sorted(status["done_days"]) == sorted(data["missing_days"])
-    stored_days = {r.stat_date for r in db_session.query(DailyStat).all()}
-    assert no_bulletin_day not in stored_days  # nothing stored for a no-bulletins day
-    assert yesterday in stored_days
+    # No local crawling ever happens — the DB is untouched by this endpoint.
+    assert db_session.query(DailyStat).count() == 1
+
+
+def test_backfill_endpoint_refuses_without_a_github_token(db_session, client):
+    old_token = main.GITHUB_ACTIONS_TOKEN
+    main.GITHUB_ACTIONS_TOKEN = ""
+    try:
+        resp = client.post("/api/admin/backfill-stats")
+        assert resp.status_code == 500
+    finally:
+        main.GITHUB_ACTIONS_TOKEN = old_token
 
 
 def test_backfill_endpoint_reports_nothing_missing_once_caught_up(db_session, client):

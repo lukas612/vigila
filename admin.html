@@ -231,7 +231,7 @@
     } else {
       btn.disabled = false;
       btn.textContent = 'Rellenar días que falten';
-      statusEl.textContent = data.message || '';
+      statusEl.textContent = data.message || data.detail || '';
     }
   }
 

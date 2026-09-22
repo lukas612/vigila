@@ -303,16 +303,22 @@ three things behind `/api/admin/*`:
   to run hours late on this low-traffic repo — GitHub Actions deprioritizes
   scheduled runs — so this is the manual fallback: `POST
   /api/admin/backfill-stats` finds every day since the last crawled one (up
-  to 7) and runs `scripts.crawl_daily_stats.crawl`/`store` for each in a
-  FastAPI `BackgroundTask`, right in the web process. That's the same
-  per-day cost (~150-200 PDFs) the cron's own comment warns against doing
-  in a web request, but this is an infrequent, admin-triggered click, not
-  something a customer request ever hits, so it's an acceptable one-off
-  trade against standing up a second trigger path (e.g. a GitHub API token
-  on Render just to fire `workflow_dispatch` remotely). In-memory state
-  (`main._backfill_state`) — fine for Render's single web worker, but a
-  second replica wouldn't see another's progress. The admin page polls
-  `GET /api/admin/backfill-stats` every 3s while a run is in progress.
+  to 7) and, for each, fires `workflow_dispatch` on `daily_stats.yml` (via
+  the GitHub REST API) in a FastAPI `BackgroundTask`. It used to run
+  `scripts.crawl_daily_stats.crawl`/`store` directly in the web process
+  instead — the same ~150-200-PDFs-per-day cost the cron's own comment
+  warns against doing in a web request — and that OOM'd the Render web
+  service in production (a Render "exceeded its memory limit" auto-restart,
+  live-2026-09), so it now only ever does a cheap HTTP POST on the web
+  dyno; the actual crawling happens on GitHub's runner, same as the cron.
+  Requires `GITHUB_ACTIONS_TOKEN` (a PAT with Actions: write on this repo)
+  set on Render — the endpoint returns a 500 with a clear message if it's
+  missing rather than silently falling back to the in-process crawl.
+  In-memory state (`main._backfill_state`) — fine for Render's single web
+  worker, but a second replica wouldn't see another's progress. The admin
+  page polls `GET /api/admin/backfill-stats` every 3s while a run is in
+  progress; "done" there means "dispatched", not "crawled" — the actual
+  crawl finishes a few minutes later on GitHub Actions.
 - **Historial de búsquedas**: the same `checks_free` rows, but as a raw
   paginated log (`GET /api/admin/checks/list`, 20/page) instead of daily
   aggregates — date, result, and short hash-prefix "refs" for the value and

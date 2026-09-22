@@ -3,9 +3,11 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import threading
 from datetime import date, datetime, timedelta
 
+import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -606,19 +608,28 @@ def admin_checks_list(
 
 # The scheduled cron (daily_stats.yml) is known to run hours late on a
 # low-traffic GitHub repo (Actions deprioritizes scheduled runs there) —
-# this is the admin panel's manual fallback: crawl straight from the web
-# process instead of waiting on GitHub's queue. It's the same heavy work
-# (~150-200 PDFs/day) the cron comment warns against doing in a web
-# request, but this is an infrequent, admin-triggered click, not something
-# a customer request ever hits, so the one-off cost on the web dyno is
-# an acceptable trade for not needing a second trigger path (e.g. a GitHub
-# API token on Render just to fire workflow_dispatch remotely).
+# this is the admin panel's manual fallback.
+#
+# This USED to crawl straight from the web process (~150-200 PDFs/day,
+# fetched with 10 concurrent workers, x up to 7 days in one click). That
+# crawl_daily_stats module even has its own docstring warning this is "far
+# too slow/CPU-heavy to do inside a web request, especially on Render's
+# free tier" — and it turned out to be right: it OOM'd the vigila-api web
+# service and triggered a Render auto-restart, taking the whole API down
+# for everyone mid-restart. So this now dispatches the *same* GitHub
+# Actions workflow the cron uses (workflow_dispatch, one run per missing
+# day) instead of doing the heavy work on the web dyno at all. Requires
+# GITHUB_ACTIONS_TOKEN (a PAT with Actions: write on this repo) to be set.
 #
 # In-memory state — fine for a single web worker (Render's free/starter
 # plan runs one), but a second replica wouldn't see another's progress.
 _BACKFILL_MAX_DAYS = 7
 _backfill_lock = threading.Lock()
 _backfill_state: dict = {"running": False, "missing_days": [], "done_days": [], "started_at": None}
+
+GITHUB_ACTIONS_TOKEN = os.environ.get("GITHUB_ACTIONS_TOKEN", "")
+GITHUB_REPO = "lukas612/vigila"
+GITHUB_WORKFLOW_FILE = "daily_stats.yml"
 
 
 def _missing_stat_days(db: Session) -> list[date]:
@@ -641,15 +652,31 @@ def _missing_stat_days(db: Session) -> list[date]:
     return days[-_BACKFILL_MAX_DAYS:]
 
 
+def _dispatch_backfill_workflow(day: date) -> None:
+    """Fires workflow_dispatch on daily_stats.yml for a single day. This is
+    a cheap HTTP POST — GitHub Actions does the actual PDF crawling on its
+    own runner, not this web dyno."""
+    resp = httpx.post(
+        f"https://api.github.com/repos/{GITHUB_REPO}/actions/workflows/{GITHUB_WORKFLOW_FILE}/dispatches",
+        headers={
+            "Authorization": f"Bearer {GITHUB_ACTIONS_TOKEN}",
+            "Accept": "application/vnd.github+json",
+        },
+        json={"ref": "main", "inputs": {"date": day.isoformat()}},
+        timeout=10,
+    )
+    resp.raise_for_status()
+
+
 def _run_backfill(days: list[date]) -> None:
     for day in days:
         try:
-            totals = crawl_daily_stats.crawl(day)
-            if totals:
-                crawl_daily_stats.store(day, totals)
+            _dispatch_backfill_workflow(day)
         except Exception:
-            logger.exception("admin backfill failed for %s", day)
+            logger.exception("failed to dispatch backfill workflow for %s", day)
         finally:
+            # "done" here means dispatched, not crawled — the actual crawl
+            # runs asynchronously on GitHub's runner, a few minutes behind.
             _backfill_state["done_days"].append(day.isoformat())
     _backfill_state["running"] = False
 
@@ -660,6 +687,12 @@ def admin_backfill_stats(
     _admin: auth.AuthUser = Depends(auth.require_admin),
     db: Session = Depends(get_db),
 ) -> AdminBackfillStatus:
+    if not GITHUB_ACTIONS_TOKEN:
+        raise HTTPException(
+            500,
+            detail="Falta configurar GITHUB_ACTIONS_TOKEN en el backend para poder lanzar el backfill.",
+        )
+
     with _backfill_lock:
         if _backfill_state["running"]:
             return AdminBackfillStatus(**_backfill_state, message="Ya hay un backfill en curso.")
@@ -675,7 +708,10 @@ def admin_backfill_stats(
             started_at=datetime.utcnow().isoformat(),
         )
         background_tasks.add_task(_run_backfill, missing)
-        return AdminBackfillStatus(**_backfill_state, message=f"Procesando {len(missing)} día(s) en segundo plano.")
+        return AdminBackfillStatus(
+            **_backfill_state,
+            message=f"Lanzados {len(missing)} día(s) en GitHub Actions — tardarán unos minutos en aparecer.",
+        )
 
 
 @app.get("/api/admin/backfill-stats", response_model=AdminBackfillStatus)
