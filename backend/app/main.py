@@ -50,6 +50,7 @@ from .schemas import (
     NotificationOut,
     PortalResponse,
     SessionRequest,
+    SocialProofResponse,
     TargetOut,
     WaitlistRequest,
     WeeklyStatsResponse,
@@ -229,6 +230,27 @@ def stats_weekly(
     if payload is None:
         raise HTTPException(status_code=404, detail="Todavía no hay datos agregados disponibles")
     return WeeklyStatsResponse(**payload)
+
+
+@app.get("/api/social-proof", response_model=SocialProofResponse)
+def social_proof(db: Session = Depends(get_db)) -> SocialProofResponse:
+    """Real, aggregate-only numbers for the landing page's social-proof
+    toasts (see SocialProofResponse's docstring for why these three and not
+    per-locality customer data). "Today"/"this month" are UTC boundaries,
+    same as the admin panel's own day-grouping (main.admin_checks) —
+    close enough for a toast, not worth a new timezone dependency here."""
+    today = datetime.utcnow().date()
+    today_start = datetime.combine(today, datetime.min.time())
+    month_start = datetime.combine(today.replace(day=1), datetime.min.time())
+
+    today_rows = db.query(CheckFree.result).filter(CheckFree.created_at >= today_start).all()
+    notifications_this_month = db.query(Notification).filter(Notification.created_at >= month_start).count()
+
+    return SocialProofResponse(
+        today_checks=len(today_rows),
+        today_found=sum(1 for (r,) in today_rows if r == CheckResultEnum.found),
+        notifications_this_month=notifications_this_month,
+    )
 
 
 def _ensure_profile(db: Session, user: auth.AuthUser) -> bool:

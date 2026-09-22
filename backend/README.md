@@ -406,6 +406,39 @@ Two triggers:
 
 Tests: `tests/test_lifecycle_emails.py`.
 
+## Social-proof toasts (landing page)
+
+`index.html` shows a floating, dismissible toast (bottom-left, cycles every
+~7s) with conversion-focused claims — but every message is built from real,
+aggregate-only numbers, never a fabricated person or event ("alguien en
+Madrid acaba de..." was the original ask, but we don't have per-check
+locality data, and inventing individual activity would be a false claim of
+real usage — legally risky, not just a style choice). Sources, all public
+endpoints:
+
+- `GET /api/stats/weekly` (already fetched for the page's own daily-hook
+  section, reused rather than called twice) — real per-locality BOE totals
+  for the last 7 days with data.
+- `GET /api/social-proof` (new) — `today_checks`/`today_found` from
+  `checks_free` (today, UTC) and `notifications_this_month` from
+  `notifications` across every customer (this calendar month, UTC) — see
+  `main.social_proof`. Deliberately never locality- or amount-tied to a
+  specific customer notification: with only a handful of paying customers,
+  pairing "a real match" with its locality/amount in a public toast could
+  single someone out. Aggregate monthly counts don't have that problem.
+
+Client-side (`initSocialProof` in `index.html`): fetches both, builds a
+message pool, shuffles it, and cycles one at a time. If either fetch fails
+or comes back with nothing, the widget simply never appears — it can't
+break the page. Positioned above the cookie banner by *measuring* the
+banner's actual rendered height each time (not a fixed guess — the
+consent text wraps to 2-3 lines on narrow screens, so a hardcoded offset
+undershoots and the banner, at a higher z-index, ends up covering the
+toast entirely). A close button sets a `sessionStorage` flag so a dismissal
+holds for the rest of that browser session.
+
+Tests: `tests/test_social_proof.py`.
+
 ## Environment variables
 
 See `.env.example`.

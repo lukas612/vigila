@@ -369,6 +369,35 @@ section.cta-band{
   .cookie-actions button{ padding:9px 16px; font-size:13px; }
   .cookie-actions .btn-plain{ background: var(--surface); color: var(--ink-soft); }
   .cookie-banner[hidden]{ display:none; }
+
+  .social-proof-toast{
+    position:fixed; left:16px; bottom:16px; z-index:90; max-width:320px;
+    background: var(--paper); border:1px solid var(--line); border-radius: var(--radius-sm);
+    box-shadow: var(--shadow); padding:13px 32px 13px 15px; font-family: var(--font-ui);
+    opacity:0; transform: translateY(10px); pointer-events:none;
+    transition: opacity .35s ease, transform .35s ease, bottom .25s ease;
+  }
+  .social-proof-toast.show{ opacity:1; transform: translateY(0); pointer-events:auto; }
+  .social-proof-toast[hidden]{ display:none; }
+  .social-proof-toast p{ margin:0; font-size:12.5px; line-height:1.45; color: var(--ink); }
+  .social-proof-toast p b{ color: var(--brand); }
+  .sp-dot{
+    display:inline-block; width:7px; height:7px; border-radius:50%; background: var(--ok);
+    margin-right:7px; box-shadow:0 0 0 3px var(--ok-soft); animation: sp-pulse 2s infinite;
+  }
+  @keyframes sp-pulse{
+    0%{ box-shadow:0 0 0 0 rgba(31,146,84,.45); }
+    70%{ box-shadow:0 0 0 8px rgba(31,146,84,0); }
+    100%{ box-shadow:0 0 0 0 rgba(31,146,84,0); }
+  }
+  .sp-close{
+    position:absolute; top:6px; right:8px; background:none; border:none; color: var(--ink-faint);
+    font-size:17px; line-height:1; cursor:pointer; padding:4px 6px; border-radius:6px;
+  }
+  .sp-close:hover{ color: var(--ink); background: var(--surface); }
+  @media (max-width: 640px){
+    .social-proof-toast{ left:12px; right:12px; max-width:none; bottom:12px; }
+  }
 </style>
 </head>
 <body>
@@ -380,6 +409,12 @@ section.cta-band{
     <button class="btn-accent" id="cookieAccept">Aceptar</button>
   </div>
 </div>
+
+<div class="social-proof-toast" id="socialProofToast" hidden>
+  <button class="sp-close" id="spClose" aria-label="Cerrar aviso">&times;</button>
+  <p id="spText"></p>
+</div>
+
 <script>
 (function(){
   var KEY = 'vigilamultas_consent';
@@ -1039,6 +1074,97 @@ section.cta-band{
 
       section.hidden = false;
     }catch(e){ /* keep the section hidden; the rest of the page works regardless */ }
+  })();
+
+  // Floating social-proof toasts. Every message here is built from real,
+  // aggregate-only numbers (the same /api/stats/weekly the hook section
+  // above uses, plus /api/social-proof) — never a fabricated person or
+  // event. If either fetch fails or comes back empty, the widget just
+  // never appears; it never blocks or affects the rest of the page.
+  (async function initSocialProof(){
+    var DISMISS_KEY = 'vigilamultas_sp_dismissed';
+    if (sessionStorage.getItem(DISMISS_KEY)) return;
+
+    var toast = document.getElementById('socialProofToast');
+    var textEl = document.getElementById('spText');
+    var closeBtn = document.getElementById('spClose');
+    var messages = [];
+
+    try{
+      var results = await Promise.allSettled([
+        fetch(API_BASE + '/api/stats/weekly').then(r => r.ok ? r.json() : null),
+        fetch(API_BASE + '/api/social-proof').then(r => r.ok ? r.json() : null),
+      ]);
+      var s = results[0].status === 'fulfilled' ? results[0].value : null;
+      var p = results[1].status === 'fulfilled' ? results[1].value : null;
+
+      if(s && s.localidades && s.localidades.length){
+        s.localidades.slice(0, 5).forEach(function(l){
+          messages.push('En <b>' + escapeHtml(l.localidad) + '</b> se han publicado <b>' +
+            l.expedientes_count.toLocaleString('es-ES') + '</b> notificaciones de tráfico en el BOE esta última semana.');
+        });
+        if(s.total_importe){
+          var eur = s.total_importe >= 1e6
+            ? (s.total_importe / 1e6).toLocaleString('es-ES', {maximumFractionDigits: 1}) + ' M €'
+            : Math.round(s.total_importe).toLocaleString('es-ES') + ' €';
+          messages.push('El BOE ha publicado multas por más de <b>' + eur + '</b> esta última semana en toda España.');
+        }
+      }
+
+      if(p){
+        if(p.today_checks > 0){
+          messages.push('Hoy ya se han hecho <b>' + p.today_checks + '</b> comprobaciones gratuitas en VigilaMultas.');
+        }
+        if(p.today_checks > 0 && p.today_found > 0){
+          var pct = Math.round((p.today_found / p.today_checks) * 100);
+          messages.push('El <b>' + pct + '%</b> de las comprobaciones de hoy han encontrado una multa pendiente.');
+        }
+        if(p.notifications_this_month > 0){
+          messages.push('Este mes hemos avisado a nuestros clientes de <b>' + p.notifications_this_month +
+            '</b> multa' + (p.notifications_this_month === 1 ? '' : 's') + ' que no sabían que tenían.');
+        }
+      }
+    }catch(e){ /* no data — widget just never shows */ }
+
+    if(!messages.length) return;
+
+    // Shuffle so it's not the same first message on every visit.
+    for(var i = messages.length - 1; i > 0; i--){
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = messages[i]; messages[i] = messages[j]; messages[j] = tmp;
+    }
+
+    var idx = 0;
+    var cycleTimer = null;
+
+    function positionAboveCookieBanner(){
+      // Measured, not guessed: the banner's text can wrap to 2-3 lines on
+      // narrow screens, so a fixed offset undershoots and the (higher
+      // z-index) banner ends up covering the toast entirely.
+      var banner = document.getElementById('cookieBanner');
+      var clearance = (banner && !banner.hidden) ? banner.getBoundingClientRect().height + 24 : 16;
+      toast.style.bottom = clearance + 'px';
+    }
+    function show(){
+      positionAboveCookieBanner();
+      textEl.innerHTML = '<span class="sp-dot"></span>' + messages[idx];
+      toast.hidden = false;
+      requestAnimationFrame(function(){ toast.classList.add('show'); });
+      idx = (idx + 1) % messages.length;
+    }
+    function hide(){ toast.classList.remove('show'); }
+
+    setTimeout(function(){
+      show();
+      cycleTimer = setInterval(function(){ hide(); setTimeout(show, 400); }, 7000);
+    }, 3500);
+
+    closeBtn.addEventListener('click', function(){
+      clearInterval(cycleTimer);
+      hide();
+      setTimeout(function(){ toast.hidden = true; }, 400);
+      sessionStorage.setItem(DISMISS_KEY, '1');
+    });
   })();
 })();
 </script>

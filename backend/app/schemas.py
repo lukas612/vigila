@@ -50,6 +50,20 @@ class DailyStatsResponse(BaseModel):
     localidades: list[LocalityStat]
 
 
+class SocialProofResponse(BaseModel):
+    """Real, aggregate-only numbers for the landing page's social-proof
+    toasts — never a specific person, never tied to a specific locality
+    for our own (tiny) customer base, to avoid singling anyone out. Paired
+    client-side with the per-locality BOE totals already fetched from
+    /api/stats/weekly for the landing page's own daily-hook section."""
+
+    today_checks: int = Field(..., description="Comprobaciones gratuitas realizadas hoy (hora Europe/Madrid)")
+    today_found: int = Field(..., description="De esas, cuántas encontraron una multa")
+    notifications_this_month: int = Field(
+        ..., description="Notificaciones reales enviadas a clientes de pago este mes natural — solo el recuento, nunca a quién ni dónde"
+    )
+
+
 class WeeklyStatsResponse(BaseModel):
     date_from: str = Field(..., description="Día más antiguo incluido en la ventana, AAAA-MM-DD")
     date_to: str = Field(..., description="Día más reciente incluido en la ventana, AAAA-MM-DD")
