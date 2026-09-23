@@ -108,7 +108,10 @@ def test_completed_checkout_session_marks_the_most_recent_attempt(db_session):
 
     attempt = db_session.query(CheckoutAttempt).filter(CheckoutAttempt.user_id == "u-3").first()
     assert attempt.completed_subscription is True
-    assert db_session.query(User).filter(User.id == "u-3").first().subscription_status == SubscriptionStatus.active
+    # Every checkout we create is a no-card trial (see billing.TRIAL_PERIOD_DAYS),
+    # so a completed session always starts "trialing", never "active" —
+    # active only happens later, once a real charge succeeds.
+    assert db_session.query(User).filter(User.id == "u-3").first().subscription_status == SubscriptionStatus.trialing
 
 
 def test_admin_billing_reports_checkout_totals_and_rate(db_session, client):

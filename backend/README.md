@@ -224,15 +224,26 @@ portal, and one webhook.
 
 - **`POST /api/billing/checkout`** (`{"plan": "individual"|"familiar"}`,
   authenticated): creates a Stripe Checkout Session in `mode=subscription`
-  for the plan's monthly Price, with `billing_address_collection=required`
-  (full name + address), `phone_number_collection[enabled]=true`, and
-  `tax_id_collection[enabled]=true` so a business customer can enter their
-  CIF/VAT id and get a valid invoice — a subscriber who's given a name and
-  phone is a real, accountable customer rather than just an email address.
-  Returns `{"url": ...}` for the frontend to redirect to. All of this comes
-  back in `customer_details` on the `checkout.session.completed` webhook
-  and is copied onto `User.name`/`User.phone` there (see
-  `billing.apply_event`), and shows up in the admin panel's Usuarios table.
+  for the plan's monthly Price, configured as a **no-card free trial**
+  (`billing.TRIAL_PERIOD_DAYS` = 30, `payment_method_collection=if_required`,
+  `trial_settings.end_behavior.missing_payment_method=cancel`) — someone
+  can activate monitoring with nothing but an email, never asked for a
+  card unless something is actually due. `billing_address_collection=auto`
+  (only collected if Stripe Tax needs it) and `tax_id_collection[enabled]
+  =true` so a business customer can still enter a CIF/VAT id for a valid
+  invoice. Phone number is no longer collected at all — Stripe only offers
+  all-or-required for that field, and requiring it pre-trial was pure
+  friction with nothing behind the payment gate to protect. This was a
+  deliberate CRO change (2026-09): the original design collected full
+  name, address and phone *and* charged immediately, on the theory that a
+  fully-identified customer is a more accountable one — but conversion data
+  showed almost nobody reached this step, let alone finished it, so the
+  trade favors letting people try the real product before asking for
+  anything. Returns `{"url": ...}` for the frontend to redirect to.
+  Whatever Stripe did collect comes back in `customer_details` on the
+  `checkout.session.completed` webhook and is copied onto
+  `User.name`/`User.phone` there (see `billing.apply_event`), and shows up
+  in the admin panel's Usuarios table.
 - **`POST /api/billing/portal`** (authenticated): creates a Stripe Billing
   Portal session for a user who already has a `stripe_customer_id`, so they
   can update payment details, cancel, **switch between Individual and
@@ -275,12 +286,17 @@ three things behind `/api/admin/*`:
 
 - **Facturación**: MRR estimate (active/trialing count per plan × its
   current list price — `billing.PLAN_PRICES_EUR`, not each customer's
-  actual invoiced amount), active/past-due/canceled counts, and a
-  last-14-days breakdown of paying signups. That last one reads
+  actual invoiced amount — so a trialing subscriber who hasn't paid a cent
+  yet is still counted; the estimate is "if all of this holds," not
+  today's real revenue), active/past-due/canceled counts, and a
+  last-14-days breakdown of new activations. That last one reads
   `User.subscribed_at`, set once by `billing.apply_event` the first time a
-  user's subscription ever goes active — never `created_at` (account
-  creation, possibly weeks before they paid) — so it's a real "altas"
-  history, not a proxy for one.
+  user's subscription starts (trial or paid — since every checkout is now
+  a trial, this fires at trial start, not at first real charge) — never
+  `created_at` (account creation, possibly weeks earlier) — so it's a real
+  "altas" history, not a proxy for one. To see actual paid conversions
+  specifically, cross-reference `subscription_status = active` (a trial
+  that converted) against this list.
   Also shows `checkout_attempts_total`/`checkout_attempts_completed` (as a
   "% checkout → pagado"): every `POST /api/billing/checkout` writes a
   `CheckoutAttempt` row *before* calling Stripe, so it counts every real
