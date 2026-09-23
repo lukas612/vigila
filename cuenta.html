@@ -321,19 +321,28 @@
   <div id="loginState" hidden>
     <div class="card">
       <h2>Accede a tu cuenta</h2>
-      <p class="sub" id="loginSub">Sin contraseña. Escribe tu email y te mandamos un enlace para entrar.</p>
+      <p class="sub" id="loginSub">Sin contraseña. Escribe tu email y te mandamos un código de acceso.</p>
       <label class="field-label" for="loginEmail" id="loginEmailLabel">Email</label>
       <div class="field-row" id="loginFieldRow">
         <input type="email" id="loginEmail" placeholder="tucorreo@ejemplo.com" autocomplete="email">
-        <button class="btn-brand" id="loginBtn" style="flex:0 0 auto;">Enviar enlace</button>
+        <button class="btn-brand" id="loginBtn" style="flex:0 0 auto;">Enviar código</button>
       </div>
       <div class="field-error" id="loginError"></div>
-      <div class="field-ok" id="loginOk">Revisa tu correo — te hemos enviado un enlace de acceso.</div>
+      <div class="field-ok" id="loginOk">Te hemos enviado un código a tu email — o el enlace de siempre, lo que te resulte más cómodo.</div>
+      <div id="otpBlock" hidden style="margin-top:14px;">
+        <label class="field-label" for="loginOtp">Código de 6 dígitos</label>
+        <div class="field-row">
+          <input type="text" id="loginOtp" placeholder="123456" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code">
+          <button class="btn-accent" id="loginOtpBtn" style="flex:0 0 auto;">Confirmar</button>
+        </div>
+        <div class="field-error" id="loginOtpError"></div>
+        <p style="margin:8px 0 0;font-size:13px;color:var(--ink-faint);">¿No te llega? Revisa spam, o pulsa el enlace del mismo email — te entra igual.</p>
+      </div>
     </div>
 
     <div class="card">
       <h2>Elige tu plan</h2>
-      <p class="sub">Sin permanencia, cancela cuando quieras. Elige uno y te mandamos el enlace de acceso arriba — al entrar seguimos directas al pago.</p>
+      <p class="sub"><b>30 días gratis, sin tarjeta.</b> Elige uno y te mandamos el código de acceso arriba — al entrar seguimos directas a activarlo.</p>
       <div class="plan-options">
         <div class="plan-option">
           <div class="plan-option-name">Individual</div>
@@ -379,7 +388,7 @@
 
     <div class="card">
       <h2>Mi plan</h2>
-      <p class="sub" id="planSub">Necesitas una suscripción activa para vigilar DNI/NIE/matrículas. Sin permanencia, cancela cuando quieras.</p>
+      <p class="sub" id="planSub">Necesitas un plan para vigilar DNI/NIE/matrículas. <b>30 días gratis, sin tarjeta</b> — cancela cuando quieras.</p>
       <div class="plan-status">
         <div class="plan-status-text" id="planStatusText"></div>
       </div>
@@ -611,7 +620,7 @@
       sub.innerHTML = `Gestiona el pago, cambia de plan o descarga tus facturas desde <b>Mi cuenta → Facturación y suscripción</b>.`;
     } else {
       statusText.innerHTML = `Sin suscripción activa${badge}`;
-      sub.textContent = 'Necesitas una suscripción activa para vigilar DNI/NIE/matrículas. Sin permanencia, cancela cuando quieras.';
+      sub.innerHTML = 'Necesitas un plan para vigilar DNI/NIE/matrículas. <b>30 días gratis, sin tarjeta</b> — cancela cuando quieras.';
     }
     options.hidden = me.max_targets > 0;
     menuBillingBtn.hidden = !me.plan;
@@ -750,6 +759,22 @@
     });
   }
 
+  // Set by index.html right before it redirects here after someone leaves
+  // their email on a free-check result — the DNI/matrícula they already
+  // typed once, so they never have to type it again to start a watch.
+  // sessionStorage (not localStorage, unlike PENDING_PLAN_KEY above): this
+  // is sensitive data and this path stays in the same tab throughout
+  // (email capture -> redirect -> OTP code entered right here), so it
+  // doesn't need to survive a tab switch the way the plan choice does.
+  function pickUpPendingTarget(){
+    let pending = null;
+    try{ pending = sessionStorage.getItem('vigilamultas_pending_target'); }catch(e){}
+    if(!pending) return;
+    try{ sessionStorage.removeItem('vigilamultas_pending_target'); }catch(e){}
+    const valueInput = document.getElementById('targetValue');
+    if(valueInput && !valueInput.value) valueInput.value = pending;
+  }
+
   function showDashboard(me){
     document.getElementById('loadingState').hidden = true;
     document.getElementById('loginState').hidden = true;
@@ -757,6 +782,7 @@
     document.getElementById('accountEmail').textContent = me.email;
     renderPlan(me);
     loadTargets();
+    pickUpPendingTarget();
 
     const pendingPlan = localStorage.getItem(PENDING_PLAN_KEY);
     if(pendingPlan){
@@ -796,10 +822,15 @@
     }
   }
 
-  // Shared by the manual "Enviar enlace" click and the auto-send below —
+  // Shared by the manual "Enviar código" click and the auto-send below —
   // one place for the OTP call, its loading state, and its error/success
-  // messaging, so neither path can drift from the other.
-  async function sendMagicLink(email, source){
+  // messaging, so neither path can drift from the other. Still passes
+  // emailRedirectTo, so the classic magic-link click keeps working exactly
+  // as before (detectSessionInUrl picks it up in init()) — the 6-digit
+  // code entered in confirmLoginCode() below is an additional, faster way
+  // to use the same email, not a replacement that could lock anyone out.
+  let pendingLoginEmail = '';
+  async function sendLoginCode(email, source){
     const errorEl = document.getElementById('loginError');
     const okEl = document.getElementById('loginOk');
     const btn = document.getElementById('loginBtn');
@@ -816,14 +847,51 @@
       options: { emailRedirectTo: window.location.origin + window.location.pathname },
     });
     btn.disabled = false;
-    btn.textContent = 'Enviar enlace';
+    btn.textContent = 'Enviar código';
     if(error){
-      showError(errorEl, 'No se pudo enviar el enlace. Inténtalo de nuevo en unos minutos.');
+      showError(errorEl, 'No se pudo enviar el código. Inténtalo de nuevo en unos minutos.');
       return false;
     }
-    gaEvent('login', { method: 'magic_link', source: source || 'manual' });
+    pendingLoginEmail = email;
+    gaEvent('login', { method: 'otp_requested', source: source || 'manual' });
     okEl.classList.add('show');
+    const otpBlock = document.getElementById('otpBlock');
+    otpBlock.hidden = false;
+    document.getElementById('loginOtp').focus();
     return true;
+  }
+
+  // The code lives in the same email as the link — same signInWithOtp
+  // call sends both, the email template just chooses what to show. Typing
+  // it here keeps someone in this tab instead of bouncing to their mail
+  // app and back, which is where most of the login funnel used to drop.
+  async function confirmLoginCode(){
+    const codeInput = document.getElementById('loginOtp');
+    const errorEl = document.getElementById('loginOtpError');
+    const btn = document.getElementById('loginOtpBtn');
+    hideError(errorEl);
+    const token = codeInput.value.trim();
+    if(!pendingLoginEmail){
+      showError(errorEl, 'Pide primero el código con tu email.');
+      return;
+    }
+    if(!/^[0-9]{6}$/.test(token)){
+      showError(errorEl, 'El código son 6 números.');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Comprobando…';
+    const { data, error } = await supabase.auth.verifyOtp({ email: pendingLoginEmail, token, type: 'email' });
+    btn.disabled = false;
+    btn.textContent = 'Confirmar';
+    if(error || !data || !data.session){
+      showError(errorEl, 'Código incorrecto o caducado. Pide uno nuevo, o usa el enlace del email.');
+      return;
+    }
+    gaEvent('login', { method: 'otp_code' });
+    await exchangeSession(data.session);
+    const me = await fetchMe();
+    if(me) showDashboard(me);
   }
 
   function showLogin(prefillEmail){
@@ -834,7 +902,7 @@
       document.getElementById('loginEmail').value = prefillEmail;
       // They already typed this email once, on the free-check result CTA —
       // showing the same input + button again right here would look like
-      // we ignored it. Hide the form, send the link straight away, and
+      // we ignored it. Hide the form, send the code straight away, and
       // only bring the form back if that send fails (so they can retry
       // with a corrected address); a plain visit to cuenta.html (no
       // ?email=) never hits this branch and keeps the normal form.
@@ -843,22 +911,26 @@
       const fieldRow = document.getElementById('loginFieldRow');
       label.hidden = true;
       fieldRow.hidden = true;
-      sub.textContent = 'Enviando el enlace de acceso a ' + prefillEmail + '…';
-      sendMagicLink(prefillEmail, 'auto_prefill').then(ok => {
+      sub.textContent = 'Enviando tu código de acceso a ' + prefillEmail + '…';
+      sendLoginCode(prefillEmail, 'auto_prefill').then(ok => {
         if(ok){
           sub.hidden = true;
         } else {
           label.hidden = false;
           fieldRow.hidden = false;
           sub.hidden = false;
-          sub.textContent = 'Sin contraseña. Escribe tu email y te mandamos un enlace para entrar.';
+          sub.textContent = 'Sin contraseña. Escribe tu email y te mandamos un código de acceso.';
         }
       });
     }
   }
 
   document.getElementById('loginBtn').addEventListener('click', () => {
-    sendMagicLink(document.getElementById('loginEmail').value.trim());
+    sendLoginCode(document.getElementById('loginEmail').value.trim());
+  });
+  document.getElementById('loginOtpBtn').addEventListener('click', confirmLoginCode);
+  document.getElementById('loginOtp').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); confirmLoginCode(); }
   });
 
   document.getElementById('logoutBtn').addEventListener('click', async () => {
