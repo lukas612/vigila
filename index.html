@@ -788,7 +788,7 @@ section.cta-band{
         return;
       }
 
-      freshBtn.textContent = hasActivePlan ? 'Cambiar a este plan' : 'Suscribirme';
+      freshBtn.textContent = hasActivePlan ? 'Cambiar a este plan' : 'Probar gratis';
       freshBtn.addEventListener('click', async function(){
         gaEvent('select_plan', { plan, method: hasActivePlan ? 'change_plan' : 'checkout', page: 'home', logged_in: true });
         freshBtn.disabled = true;

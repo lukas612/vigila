@@ -144,6 +144,11 @@ def create_checkout_session(user: User, plan: Plan, success_url: str, cancel_url
         "success_url": success_url,
         "cancel_url": cancel_url,
         "client_reference_id": user.id,
+        # Every customer here is Spanish (BOE-only product) — force "es"
+        # instead of "auto", which infers from the browser's Accept-Language
+        # and can land on English for anyone with an English-language OS
+        # even though they're checking out in Spanish on our own pages.
+        "locale": "es",
         "billing_address_collection": "auto",
         "tax_id_collection[enabled]": "true",
         "automatic_tax[enabled]": "true",

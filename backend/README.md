@@ -233,6 +233,9 @@ portal, and one webhook.
   a no-card trial removes friction at signup but converts trial->paid far
   worse, since letting it lapse takes zero action — a card on file is
   what actually turns a trial into recurring revenue.
+  `locale=es` (forced, not `auto` — every customer here is Spanish, and
+  `auto` infers from the browser's language rather than the page's, which
+  can land an English-OS visitor on an English checkout mid-flow).
   `billing_address_collection=auto` (only collected if Stripe Tax needs
   it) and `tax_id_collection[enabled]=true` so a business customer can
   still enter a CIF/VAT id for a valid invoice. Phone number is not
