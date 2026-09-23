@@ -128,6 +128,8 @@
         <div class="tile"><div class="n" id="bIndividual">—</div><div class="l">plan individual</div></div>
         <div class="tile"><div class="n" id="bFamiliar">—</div><div class="l">plan familiar</div></div>
         <div class="tile"><div class="n" id="bPastDue">—</div><div class="l">con pago fallido</div></div>
+        <div class="tile"><div class="n" id="bCheckoutTotal">—</div><div class="l">clics en "Suscribirme"</div></div>
+        <div class="tile"><div class="n" id="bCheckoutRate">—</div><div class="l">% checkout → pagado</div></div>
       </div>
       <table>
         <thead><tr><th>Día</th><th>Altas de pago</th></tr></thead>
@@ -271,6 +273,10 @@
     document.getElementById('bIndividual').textContent = (data.by_plan.individual || 0).toLocaleString('es-ES');
     document.getElementById('bFamiliar').textContent = (data.by_plan.familiar || 0).toLocaleString('es-ES');
     document.getElementById('bPastDue').textContent = data.past_due_count.toLocaleString('es-ES');
+    document.getElementById('bCheckoutTotal').textContent = data.checkout_attempts_total.toLocaleString('es-ES');
+    document.getElementById('bCheckoutRate').textContent = data.checkout_attempts_total
+      ? Math.round((data.checkout_attempts_completed / data.checkout_attempts_total) * 100) + '%'
+      : '—';
 
     const tbody = document.getElementById('billingByDay');
     tbody.innerHTML = data.signups_by_day.length

@@ -193,6 +193,8 @@ class AdminBillingResponse(BaseModel):
     signups_by_day: list[AdminBillingDayCount] = Field(
         ..., description="Altas de pago de los últimos 14 días (por subscribed_at)"
     )
+    checkout_attempts_total: int = Field(..., description="Clics en 'Suscribirme' registrados (POST /api/billing/checkout), hayan pagado o no")
+    checkout_attempts_completed: int = Field(..., description="De esos clics, cuántos llegaron a activar la suscripción")
 
 
 class AdminCheckOut(BaseModel):

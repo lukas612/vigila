@@ -164,6 +164,25 @@ class WaitlistSignup(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 
+class CheckoutAttempt(Base):
+    """One row per POST /api/billing/checkout — someone clicked to
+    subscribe, whether or not they ever completed payment on Stripe's side.
+    We had no server-side record of this funnel step at all before (only a
+    client-side GA4 event, lost to ad blockers/declined consent) — this is
+    the ground truth, independent of that. completed_subscription is
+    updated after the fact by billing.apply_event's first activation for
+    this user, so the admin panel can show real checkout->paid conversion,
+    not just "checkout clicks" in isolation."""
+
+    __tablename__ = "checkout_attempts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    plan: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+    completed_subscription: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 class DailyStat(Base):
     """Aggregate-only stats scraped from the BOE's full daily traffic listing
     (not the per-user check pipeline). Deliberately never stores anything at

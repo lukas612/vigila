@@ -281,6 +281,18 @@ three things behind `/api/admin/*`:
   user's subscription ever goes active — never `created_at` (account
   creation, possibly weeks before they paid) — so it's a real "altas"
   history, not a proxy for one.
+  Also shows `checkout_attempts_total`/`checkout_attempts_completed` (as a
+  "% checkout → pagado"): every `POST /api/billing/checkout` writes a
+  `CheckoutAttempt` row *before* calling Stripe, so it counts every real
+  click to subscribe — whether or not the Stripe call itself succeeds.
+  There was no server-side signal for this funnel step before (only a
+  client-side GA4 `checkout_start`/`select_plan` event, silently dropped
+  by ad blockers or declined cookie consent). `billing.apply_event`'s
+  `checkout.session.completed` handler marks the most recent unmarked
+  attempt for that user as `completed_subscription=True`, so the rate is a
+  real checkout→paid conversion, not just a click count. Only tracks
+  clicks going forward from when this shipped — there's no way to
+  reconstruct earlier ones.
 - **Usuarios**: every account, its plan/subscription/Stripe fields (now
   populated once a user subscribes — see "Billing (Stripe)"), and how many
   targets/matches it has. Three account states, folded into one table

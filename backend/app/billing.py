@@ -18,7 +18,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from . import lifecycle_emails
-from .models import Plan, SubscriptionStatus, User
+from .models import CheckoutAttempt, Plan, SubscriptionStatus, User
 
 logger = logging.getLogger("vigila")
 
@@ -209,6 +209,17 @@ def apply_event(db: Session, event: dict) -> None:
         is_first_activation = user.subscribed_at is None
         if is_first_activation:
             user.subscribed_at = datetime.utcnow()
+        # Best-effort link back to the CheckoutAttempt this completed —
+        # the most recent unmarked one for this user, so the admin panel
+        # can show a real checkout->paid rate, not just raw click counts.
+        attempt = (
+            db.query(CheckoutAttempt)
+            .filter(CheckoutAttempt.user_id == user.id, CheckoutAttempt.completed_subscription.is_(False))
+            .order_by(CheckoutAttempt.created_at.desc())
+            .first()
+        )
+        if attempt:
+            attempt.completed_subscription = True
         db.commit()
         if is_first_activation:
             lifecycle_emails.send_welcome_paid_0(db, user)

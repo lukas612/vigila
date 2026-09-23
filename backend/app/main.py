@@ -18,6 +18,7 @@ from . import auth, billing, check_service, crypto, lifecycle_emails, monitoring
 from .db import get_db, init_db
 from .models import (
     CheckFree,
+    CheckoutAttempt,
     CheckResultEnum,
     DailyStat,
     MonitoredId,
@@ -435,6 +436,15 @@ def billing_checkout(
 
     _ensure_profile(db, user)
     profile = db.query(User).filter(User.id == user.id).first()
+
+    # Ground truth for "how many people clicked to subscribe" — recorded
+    # before we even talk to Stripe, so it counts every real click, not
+    # just the ones where Stripe's API happened to succeed. The only
+    # funnel step we had before this was a client-side GA4 event, which
+    # ad blockers and declined cookie consent can both silently drop.
+    db.add(CheckoutAttempt(user_id=user.id, plan=plan.value))
+    db.commit()
+
     try:
         url = billing.create_checkout_session(
             profile,
@@ -839,6 +849,11 @@ def admin_billing(
         key = subscribed_at.date().isoformat()
         by_day[key] = by_day.get(key, 0) + 1
 
+    checkout_attempts_total = db.query(CheckoutAttempt).count()
+    checkout_attempts_completed = (
+        db.query(CheckoutAttempt).filter(CheckoutAttempt.completed_subscription.is_(True)).count()
+    )
+
     return AdminBillingResponse(
         active_count=counts[SubscriptionStatus.active],
         trialing_count=counts[SubscriptionStatus.trialing],
@@ -849,6 +864,8 @@ def admin_billing(
         signups_by_day=[
             AdminBillingDayCount(day=day, count=count) for day, count in sorted(by_day.items(), reverse=True)
         ],
+        checkout_attempts_total=checkout_attempts_total,
+        checkout_attempts_completed=checkout_attempts_completed,
     )
 
 
