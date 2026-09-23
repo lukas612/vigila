@@ -330,9 +330,9 @@
       <div class="field-error" id="loginError"></div>
       <div class="field-ok" id="loginOk">Te hemos enviado un código a tu email — o el enlace de siempre, lo que te resulte más cómodo.</div>
       <div id="otpBlock" hidden style="margin-top:14px;">
-        <label class="field-label" for="loginOtp">Código de 6 dígitos</label>
+        <label class="field-label" for="loginOtp">Código de acceso</label>
         <div class="field-row">
-          <input type="text" id="loginOtp" placeholder="123456" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code">
+          <input type="text" id="loginOtp" placeholder="Código del email" inputmode="numeric" pattern="[0-9]*" maxlength="12" autocomplete="one-time-code">
           <button class="btn-accent" id="loginOtpBtn" style="flex:0 0 auto;">Confirmar</button>
         </div>
         <div class="field-error" id="loginOtpError"></div>
@@ -875,8 +875,13 @@
       showError(errorEl, 'Pide primero el código con tu email.');
       return;
     }
-    if(!/^[0-9]{6}$/.test(token)){
-      showError(errorEl, 'El código son 6 números.');
+    // Not hardcoded to a fixed length: Supabase's actual OTP length is a
+    // project setting, not something this code controls — it sent an
+    // 8-digit code the day this was first tested even though the UI still
+    // assumed 6. Just require "a run of digits" and let verifyOtp be the
+    // real check.
+    if(!/^[0-9]{4,12}$/.test(token)){
+      showError(errorEl, 'Escribe el código de números que te hemos mandado por email.');
       return;
     }
     btn.disabled = true;
