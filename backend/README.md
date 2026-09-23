@@ -224,22 +224,22 @@ portal, and one webhook.
 
 - **`POST /api/billing/checkout`** (`{"plan": "individual"|"familiar"}`,
   authenticated): creates a Stripe Checkout Session in `mode=subscription`
-  for the plan's monthly Price, configured as a **no-card free trial**
-  (`billing.TRIAL_PERIOD_DAYS` = 30, `payment_method_collection=if_required`,
-  `trial_settings.end_behavior.missing_payment_method=cancel`) — someone
-  can activate monitoring with nothing but an email, never asked for a
-  card unless something is actually due. `billing_address_collection=auto`
-  (only collected if Stripe Tax needs it) and `tax_id_collection[enabled]
-  =true` so a business customer can still enter a CIF/VAT id for a valid
-  invoice. Phone number is no longer collected at all — Stripe only offers
-  all-or-required for that field, and requiring it pre-trial was pure
-  friction with nothing behind the payment gate to protect. This was a
-  deliberate CRO change (2026-09): the original design collected full
-  name, address and phone *and* charged immediately, on the theory that a
-  fully-identified customer is a more accountable one — but conversion data
-  showed almost nobody reached this step, let alone finished it, so the
-  trade favors letting people try the real product before asking for
-  anything. Returns `{"url": ...}` for the frontend to redirect to.
+  for the plan's monthly Price, configured as a **15-day free trial with a
+  card required up front** (`billing.TRIAL_PERIOD_DAYS` = 15) — nothing is
+  charged until the trial ends, but a payment method is collected at
+  signup (Checkout's default for `mode=subscription`), so staying
+  subscribed is the default and cancelling is the deliberate act. This
+  was chosen deliberately over a no-card trial (tried briefly, 2026-09):
+  a no-card trial removes friction at signup but converts trial->paid far
+  worse, since letting it lapse takes zero action — a card on file is
+  what actually turns a trial into recurring revenue.
+  `billing_address_collection=auto` (only collected if Stripe Tax needs
+  it) and `tax_id_collection[enabled]=true` so a business customer can
+  still enter a CIF/VAT id for a valid invoice. Phone number is not
+  collected at all — Stripe only offers all-or-required for that field,
+  and it added friction for no benefit now that name+card already make
+  someone an accountable customer. Returns `{"url": ...}` for the
+  frontend to redirect to.
   Whatever Stripe did collect comes back in `customer_details` on the
   `checkout.session.completed` webhook and is copied onto
   `User.name`/`User.phone` there (see `billing.apply_event`), and shows up

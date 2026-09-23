@@ -342,7 +342,7 @@
 
     <div class="card">
       <h2>Elige tu plan</h2>
-      <p class="sub"><b>30 días gratis, sin tarjeta.</b> Elige uno y te mandamos el código de acceso arriba — al entrar seguimos directas a activarlo.</p>
+      <p class="sub"><b>15 días gratis.</b> Elige uno y te mandamos el código de acceso arriba — al entrar seguimos directas a activarlo.</p>
       <div class="plan-options">
         <div class="plan-option">
           <div class="plan-option-name">Individual</div>
@@ -388,7 +388,7 @@
 
     <div class="card">
       <h2>Mi plan</h2>
-      <p class="sub" id="planSub">Necesitas un plan para vigilar DNI/NIE/matrículas. <b>30 días gratis, sin tarjeta</b> — cancela cuando quieras.</p>
+      <p class="sub" id="planSub">Necesitas un plan para vigilar DNI/NIE/matrículas. <b>15 días gratis</b> — cancela cuando quieras.</p>
       <div class="plan-status">
         <div class="plan-status-text" id="planStatusText"></div>
       </div>
@@ -613,7 +613,7 @@
       sub.innerHTML = `Gestiona el pago, cambia de plan o descarga tus facturas desde <b>Mi cuenta → Facturación y suscripción</b>.`;
     } else {
       statusText.innerHTML = `Sin suscripción activa${badge}`;
-      sub.innerHTML = 'Necesitas un plan para vigilar DNI/NIE/matrículas. <b>30 días gratis, sin tarjeta</b> — cancela cuando quieras.';
+      sub.innerHTML = 'Necesitas un plan para vigilar DNI/NIE/matrículas. <b>15 días gratis</b> — cancela cuando quieras.';
     }
     options.hidden = me.max_targets > 0;
     menuBillingBtn.hidden = !me.plan;

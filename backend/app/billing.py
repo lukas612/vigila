@@ -56,11 +56,15 @@ PLAN_PRICES_EUR = {
     Plan.familiar: 6.99,
 }
 
-# Paying up front for a future, uncertain event (a fine that may never show
-# up) is exactly the kind of commitment people bounce off at checkout —
-# see create_checkout_session's docstring for how this is wired into a
-# no-card trial.
-TRIAL_PERIOD_DAYS = 30
+# A trial still lowers the barrier to try the real product without paying
+# today, but requires a card up front (see create_checkout_session) — a
+# trial with no card collects almost nobody at day N unless they come back
+# on their own, since letting it lapse takes zero action; a card on file
+# makes staying subscribed the default and cancelling the deliberate act,
+# which converts trial->paid far better. 15 days (not 30) keeps the wait
+# for "did I actually see value" reasonable given BOE notifications can
+# take weeks to appear, without stretching the commitment out too long.
+TRIAL_PERIOD_DAYS = 15
 
 _API_BASE = "https://api.stripe.com/v1"
 _WEBHOOK_TOLERANCE_SECONDS = 300
@@ -101,23 +105,21 @@ def _request(method: str, path: str, **form_data: str) -> dict:
 
 
 def create_checkout_session(user: User, plan: Plan, success_url: str, cancel_url: str) -> str:
-    """Starts a subscription checkout for `plan`, as a no-card free trial —
-    TRIAL_PERIOD_DAYS with payment_method_collection=if_required means
-    Checkout only asks for a card if something is actually due today
-    (never, for a trial), so someone can activate monitoring with nothing
-    but an email. trial_settings.end_behavior=cancel means a trial that
-    never got a card just lapses on its own instead of silently trying (and
-    failing) to charge nothing, or worse, blocking on nothing to charge.
-    This is a deliberate conversion-rate trade-off: paying for a future,
-    uncertain event (a fine that may never show up) is exactly the kind of
-    commitment people bounce off, so we let them try the real product
-    before ever asking for money.
+    """Starts a subscription checkout for `plan` with a TRIAL_PERIOD_DAYS
+    free trial — card required up front (Checkout's default for
+    mode=subscription; nothing charged until the trial ends), not
+    payment_method_collection=if_required. A card-required trial converts
+    trial->paid far better than a no-card one: staying subscribed becomes
+    the default and cancelling the deliberate act, instead of the reverse.
+    The trade is a bit more friction at signup, accepted deliberately here
+    since it buys a real chance at recurring revenue instead of just trial
+    signups that quietly lapse.
 
     billing_address_collection is "auto" (collected only if Stripe Tax
     actually needs it) rather than forcing it on every checkout, and
     phone_number_collection is left off entirely — Stripe has no "optional
-    phone" mode, only all-or-required, and requiring it pre-trial is pure
-    friction for zero benefit now that there's no payment gate to protect.
+    phone" mode, only all-or-required, and it added friction for no benefit
+    now that name+card already make someone an accountable customer.
     tax_id_collection (CIF/VAT) stays on since business customers need it
     for a valid invoice, and it doesn't block anyone who leaves it blank.
     All of this comes back on the checkout.session.completed webhook's
@@ -143,11 +145,9 @@ def create_checkout_session(user: User, plan: Plan, success_url: str, cancel_url
         "cancel_url": cancel_url,
         "client_reference_id": user.id,
         "billing_address_collection": "auto",
-        "payment_method_collection": "if_required",
         "tax_id_collection[enabled]": "true",
         "automatic_tax[enabled]": "true",
         "subscription_data[trial_period_days]": str(TRIAL_PERIOD_DAYS),
-        "subscription_data[trial_settings][end_behavior][missing_payment_method]": "cancel",
         "metadata[user_id]": user.id,
         "metadata[plan]": plan.value,
         "subscription_data[metadata][user_id]": user.id,
@@ -228,11 +228,11 @@ def apply_event(db: Session, event: dict) -> None:
             except ValueError:
                 logger.warning("checkout.session.completed with unknown plan %r", plan_value)
         # Every checkout session we create is configured with a trial (see
-        # create_checkout_session's TRIAL_PERIOD_DAYS + payment_method_
-        # collection=if_required), so a session completing here always
-        # means Stripe just started a trial — never a real charge yet.
-        # Marking this "active" would be a lie (and would falsely skip the
-        # real activation-to-paid transition handled below, in
+        # create_checkout_session's TRIAL_PERIOD_DAYS), so a session
+        # completing here always means Stripe just started a trial — a
+        # card is on file, but nothing's been charged yet. Marking this
+        # "active" would be a lie (and would falsely skip the real
+        # activation-to-paid transition handled below, in
         # customer.subscription.updated, once the trial actually converts).
         user.subscription_status = SubscriptionStatus.trialing
         is_first_trial_start = user.subscribed_at is None
