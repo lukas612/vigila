@@ -632,8 +632,12 @@
     // main._pre_attach_waitlist_target) means we already know what to
     // vigilar: skip the "pick between two plans" decision and show one
     // direct "Activar vigilancia" button instead, unless they've asked to
-    // see the full chooser anyway.
-    const showPending = me.has_pending_target && me.max_targets === 0 && !showFullPlanChooser;
+    // see the full chooser anyway. The "direct" A/B variant skips even
+    // that button (see showDashboard's auto-trigger below), so this CTA
+    // never renders for it at all — not even a one-frame flash of a
+    // button that's about to redirect anyway.
+    const showPending = me.has_pending_target && me.max_targets === 0 && !showFullPlanChooser
+      && me.pending_target_variant !== 'direct';
     pendingCta.hidden = !showPending;
     options.hidden = me.max_targets > 0 || showPending;
     menuBillingBtn.hidden = !me.plan;
@@ -820,6 +824,13 @@
     if(pendingPlan){
       localStorage.removeItem(PENDING_PLAN_KEY);
       if(me.max_targets === 0) startCheckout(pendingPlan, null, 'pending_plan');
+    } else if(me.has_pending_target && me.max_targets === 0 && me.pending_target_variant === 'direct'){
+      // A/B test (2026-09): this account was randomly assigned "direct" —
+      // skip the "Activar vigilancia" button entirely and go straight into
+      // Stripe Checkout for the Individual plan, the moment the dashboard
+      // would otherwise have shown it. See main.User.ab_pending_cta_variant.
+      gaEvent('select_plan', { plan: 'individual', method: 'pending_target_direct', page: 'cuenta', logged_in: true });
+      startCheckout('individual', null, 'pending_target_direct');
     }
   }
 

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import threading
 from datetime import date, datetime, timedelta
 
@@ -32,6 +33,7 @@ from .models import (
 from .rate_limit import RateLimiter, hash_identifier
 from scripts import crawl_daily_stats
 from .schemas import (
+    AdminAbVariantStats,
     AdminBackfillStatus,
     AdminBillingDayCount,
     AdminBillingResponse,
@@ -280,6 +282,14 @@ def _pre_attach_waitlist_target(db: Session, profile: User) -> None:
     if not signup:
         return
     db.add(MonitoredId(user_id=profile.id, value_encrypted=signup.value_encrypted, active=False))
+    # A/B test (2026-09): does a single "Activar vigilancia" button convert
+    # better than skipping it and going straight into Stripe Checkout?
+    # Assigned once, right here, only for the accounts this test actually
+    # applies to (see User.ab_pending_cta_variant's docstring) — sticky for
+    # the account's lifetime, cuenta.html reads it via
+    # MeResponse.pending_target_variant and main.admin_billing reports
+    # conversion per variant.
+    profile.ab_pending_cta_variant = random.choice(["button", "direct"])
     db.commit()
 
 
@@ -321,13 +331,15 @@ def create_session(payload: SessionRequest, response: Response, db: Session = De
     auth.set_session_cookies(response, payload.access_token, payload.refresh_token, payload.expires_in)
     is_new_user = _ensure_profile(db, user)
     profile = db.query(User).filter(User.id == user.id).first()
+    pending = _has_pending_target(db, profile)
     return MeResponse(
         email=user.email,
         plan=profile.plan.value if profile.plan else None,
         subscription_status=profile.subscription_status.value,
         max_targets=_max_targets(profile),
         is_new_user=is_new_user,
-        has_pending_target=_has_pending_target(db, profile),
+        has_pending_target=pending,
+        pending_target_variant=(profile.ab_pending_cta_variant or "button") if pending else None,
     )
 
 
@@ -340,12 +352,14 @@ def logout(response: Response) -> dict[str, bool]:
 @app.get("/api/auth/me", response_model=MeResponse)
 def me(user: auth.AuthUser = Depends(auth.get_current_user), db: Session = Depends(get_db)) -> MeResponse:
     profile = db.query(User).filter(User.id == user.id).first()
+    pending = _has_pending_target(db, profile)
     return MeResponse(
         email=user.email,
         plan=profile.plan.value if profile and profile.plan else None,
         subscription_status=profile.subscription_status.value if profile else SubscriptionStatus.none.value,
         max_targets=_max_targets(profile),
-        has_pending_target=_has_pending_target(db, profile),
+        has_pending_target=pending,
+        pending_target_variant=(profile.ab_pending_cta_variant or "button") if pending and profile else None,
     )
 
 
@@ -892,6 +906,28 @@ def admin_billing(
         db.query(CheckoutAttempt).filter(CheckoutAttempt.completed_subscription.is_(True)).count()
     )
 
+    # "button" (Activar vigilancia, one click) vs "direct" (straight to
+    # Stripe, no click) — see User.ab_pending_cta_variant's docstring for
+    # how/when each account got assigned. Built from the same `users` list
+    # already loaded above, plus one extra query for who's ever started a
+    # checkout at all (CheckoutAttempt has no variant of its own — the
+    # user it belongs to is the join, via ab_pending_cta_variant).
+    users_with_checkout = {row[0] for row in db.query(CheckoutAttempt.user_id).distinct().all()}
+    ab_buckets: dict[str, dict[str, int]] = {}
+    for u in users:
+        variant = u.ab_pending_cta_variant
+        if not variant:
+            continue
+        bucket = ab_buckets.setdefault(variant, {"assigned": 0, "checkout_started": 0, "activated": 0})
+        bucket["assigned"] += 1
+        if u.id in users_with_checkout:
+            bucket["checkout_started"] += 1
+        if u.subscription_status in (SubscriptionStatus.active, SubscriptionStatus.trialing):
+            bucket["activated"] += 1
+    ab_pending_cta = [
+        AdminAbVariantStats(variant=variant, **stats) for variant, stats in sorted(ab_buckets.items())
+    ]
+
     return AdminBillingResponse(
         active_count=counts[SubscriptionStatus.active],
         trialing_count=counts[SubscriptionStatus.trialing],
@@ -904,6 +940,7 @@ def admin_billing(
         ],
         checkout_attempts_total=checkout_attempts_total,
         checkout_attempts_completed=checkout_attempts_completed,
+        ab_pending_cta=ab_pending_cta,
     )
 
 

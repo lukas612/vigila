@@ -73,6 +73,17 @@ class User(Base):
     # (which is account creation, possibly weeks before they ever paid).
     subscribed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # "button" (see the single-button "Activar vigilancia" CTA) vs "direct"
+    # (skip it, send them straight into Stripe Checkout) — assigned once,
+    # 50/50, in main._pre_attach_waitlist_target, at the exact moment a
+    # pending target gets attached (so it's only ever set for the accounts
+    # this A/B test actually applies to; sticky for that account's whole
+    # lifetime, never reassigned). Null for everyone outside the test —
+    # includes every account that existed before this column did, and
+    # cuenta.html treats null the same as "button" (the safer default: no
+    # surprise auto-redirect for someone who's never seen the CTA).
+    ab_pending_cta_variant: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
     monitored_ids: Mapped[list["MonitoredId"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 

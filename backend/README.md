@@ -264,10 +264,30 @@ anything without the separate, explicit act of actually subscribing
 since nothing is being watched yet at that point; worth a copy pass on the
 waitlist checkbox if that gap ever needs to be made more explicit.
 
-A natural next step (mentioned as a future A/B test, not built yet): skip
-the button entirely and send someone with a pending target straight into
-Stripe Checkout the moment they land on `cuenta.html` logged in, instead
-of showing the CTA first.
+**A/B test (2026-09): "button" vs "direct".** Does the single-button CTA
+convert better than skipping it entirely? Every account that gets a
+pending target attached (step 2 above) is randomly assigned one of the
+two, 50/50, once and for good (`User.ab_pending_cta_variant`, set in
+`main._pre_attach_waitlist_target`):
+
+- **`button`** (the flow described above): shows the CTA, waits for a click.
+- **`direct`**: skips the CTA — `cuenta.html`'s `showDashboard` calls
+  `startCheckout('individual', ...)` itself the moment the dashboard would
+  otherwise have shown the button, so a `direct` account never even sees
+  it (not a flash-then-redirect — `renderPlan`'s `showPending` check
+  excludes this variant outright).
+
+`GET /api/admin/billing` reports both variants' funnel
+(`AdminBillingResponse.ab_pending_cta`: assigned / started a checkout /
+currently active-or-trialing per variant, computed in `main.admin_billing`
+by joining the already-loaded `users` list against who has any
+`CheckoutAttempt` — no variant column on `CheckoutAttempt` itself, the
+join is via the user), and `admin.html`'s new "Test A/B — Activar
+vigilancia" card renders it with a conversion percentage per variant. A
+null variant (every account from before this column existed, or one that
+never got a pending target at all) is excluded from both the stats and
+the frontend's auto-redirect — `cuenta.html` treats missing/null the same
+as `button`, the safer default.
 
 Tests: `tests/test_pending_target.py`.
 

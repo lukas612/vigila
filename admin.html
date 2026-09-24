@@ -138,6 +138,15 @@
     </div>
 
     <div class="card">
+      <h2>Test A/B — "Activar vigilancia"</h2>
+      <p class="sub" style="margin-bottom:16px;">Botón único (un clic, luego Stripe) vs. directo (sin botón, a Stripe nada más entrar) — solo para cuentas con un DNI/NIE/matrícula ya pre-asociado desde la comprobación gratuita. Asignación 50/50, aleatoria y fija por cuenta.</p>
+      <table>
+        <thead><tr><th>Variante</th><th>Asignadas</th><th>Iniciaron checkout</th><th>Activas / en prueba</th><th>% conversión</th></tr></thead>
+        <tbody id="abTestBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
       <h2>Comprobaciones gratuitas</h2>
       <div class="tiles">
         <div class="tile"><div class="n" id="cTotal">—</div><div class="l">comprobaciones</div></div>
@@ -290,6 +299,20 @@
     tbody.innerHTML = data.signups_by_day.length
       ? data.signups_by_day.map(d => `<tr><td>${formatDate(d.day)}</td><td>${d.count}</td></tr>`).join('')
       : '<tr><td colspan="2" style="color:var(--ink-faint);">Sin altas de pago en los últimos 14 días.</td></tr>';
+
+    const VARIANT_LABELS = { button: 'Botón (Activar vigilancia)', direct: 'Directo (sin botón)' };
+    const abBody = document.getElementById('abTestBody');
+    abBody.innerHTML = data.ab_pending_cta.length
+      ? data.ab_pending_cta.map(v => `
+          <tr>
+            <td>${VARIANT_LABELS[v.variant] || escapeHtml(v.variant)}</td>
+            <td>${v.assigned.toLocaleString('es-ES')}</td>
+            <td>${v.checkout_started.toLocaleString('es-ES')}</td>
+            <td>${v.activated.toLocaleString('es-ES')}</td>
+            <td>${v.assigned ? Math.round((v.activated / v.assigned) * 100) + '%' : '—'}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="5" style="color:var(--ink-faint);">Todavía no hay ninguna cuenta asignada a una variante.</td></tr>';
   }
 
   async function loadChecks(){

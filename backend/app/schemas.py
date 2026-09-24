@@ -102,6 +102,12 @@ class MeResponse(BaseModel):
         description="No hay plan activo, pero ya tiene al menos un DNI/NIE/matrícula guardado (normalmente "
         "pre-asociado desde una comprobación gratuita) esperando a que se active un plan para empezar a vigilarlo",
     )
+    pending_target_variant: str | None = Field(
+        None,
+        description="'button' o 'direct' — test A/B (2026-09) de si conviene más mostrar el botón "
+        "'Activar vigilancia' o saltárselo e ir directo a Stripe. Solo tiene valor cuando has_pending_target "
+        "es true; null en cualquier otro caso.",
+    )
 
 
 class CheckoutRequest(BaseModel):
@@ -195,6 +201,13 @@ class AdminBillingDayCount(BaseModel):
     count: int = Field(..., description="Nuevas suscripciones activadas ese día")
 
 
+class AdminAbVariantStats(BaseModel):
+    variant: str = Field(..., description="'button' o 'direct'")
+    assigned: int = Field(..., description="Cuentas asignadas a esta variante")
+    checkout_started: int = Field(..., description="De esas, cuántas llegaron a iniciar un checkout")
+    activated: int = Field(..., description="De esas, cuántas tienen hoy suscripción activa o en prueba")
+
+
 class AdminBillingResponse(BaseModel):
     active_count: int
     trialing_count: int
@@ -207,6 +220,12 @@ class AdminBillingResponse(BaseModel):
     )
     checkout_attempts_total: int = Field(..., description="Clics en 'Suscribirme' registrados (POST /api/billing/checkout), hayan pagado o no")
     checkout_attempts_completed: int = Field(..., description="De esos clics, cuántos llegaron a activar la suscripción")
+    ab_pending_cta: list[AdminAbVariantStats] = Field(
+        default_factory=list,
+        description="Test A/B (2026-09): 'button' (un clic en Activar vigilancia) vs 'direct' (directo a "
+        "Stripe sin botón) para cuentas con un DNI/NIE/matrícula ya pre-asociado. Vacío hasta que haya alguna "
+        "cuenta asignada a una variante.",
+    )
 
 
 class AdminCheckOut(BaseModel):

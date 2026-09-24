@@ -24,7 +24,7 @@ from fastapi.testclient import TestClient
 
 from app import auth, billing, crypto, main
 from app.db import SessionLocal, get_db, init_db
-from app.models import MonitoredId, Plan, SubscriptionStatus, User, WaitlistSignup
+from app.models import CheckoutAttempt, MonitoredId, Plan, SubscriptionStatus, User, WaitlistSignup
 
 
 @pytest.fixture()
@@ -36,6 +36,7 @@ def db_session():
     finally:
         session.query(MonitoredId).delete()
         session.query(WaitlistSignup).delete()
+        session.query(CheckoutAttempt).delete()
         session.query(User).delete()
         session.commit()
         session.close()
@@ -95,6 +96,28 @@ def test_first_login_pre_attaches_the_latest_waitlist_value_as_an_inactive_targe
     assert crypto.decrypt_value(targets[0].value_encrypted) == "22222222J"  # most recent signup wins
 
 
+def test_pre_attach_assigns_an_ab_test_variant(db_session):
+    db_session.add(WaitlistSignup(email="ab@example.com", context="ok", value_encrypted=crypto.encrypt_value("77777777Q")))
+    db_session.commit()
+    profile = User(id="u-ab", email="ab@example.com")
+    db_session.add(profile)
+    db_session.commit()
+
+    main._pre_attach_waitlist_target(db_session, profile)
+
+    assert profile.ab_pending_cta_variant in ("button", "direct")
+
+
+def test_pre_attach_without_a_matching_value_never_assigns_a_variant(db_session):
+    profile = User(id="u-noab", email="noab@example.com")
+    db_session.add(profile)
+    db_session.commit()
+
+    main._pre_attach_waitlist_target(db_session, profile)
+
+    assert profile.ab_pending_cta_variant is None
+
+
 def test_pre_attach_is_a_noop_without_a_matching_waitlist_value(db_session):
     profile = User(id="u-e", email="e@example.com")
     db_session.add(profile)
@@ -133,6 +156,67 @@ def test_has_pending_target_true_only_with_no_plan_and_an_existing_target(db_ses
     assert main._has_pending_target(db_session, no_plan_user) is True
     assert main._has_pending_target(db_session, subscribed_user) is False
     assert main._has_pending_target(db_session, None) is False
+
+
+def test_me_endpoint_reports_the_pending_target_and_its_variant(db_session, client):
+    profile = User(id="u-me", email="me@example.com")
+    db_session.add(profile)
+    db_session.add(MonitoredId(user_id="u-me", value_encrypted=crypto.encrypt_value("88888888W"), active=False))
+    profile.ab_pending_cta_variant = "direct"
+    db_session.commit()
+
+    main.app.dependency_overrides[auth.get_current_user] = lambda: auth.AuthUser(id="u-me", email="me@example.com")
+    try:
+        resp = client.get("/api/auth/me")
+    finally:
+        main.app.dependency_overrides.pop(auth.get_current_user, None)
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["has_pending_target"] is True
+    assert data["pending_target_variant"] == "direct"
+
+
+def test_me_endpoint_variant_is_null_without_a_pending_target(db_session, client):
+    profile = User(id="u-me2", email="me2@example.com")
+    db_session.add(profile)
+    db_session.commit()
+
+    main.app.dependency_overrides[auth.get_current_user] = lambda: auth.AuthUser(id="u-me2", email="me2@example.com")
+    try:
+        resp = client.get("/api/auth/me")
+    finally:
+        main.app.dependency_overrides.pop(auth.get_current_user, None)
+
+    data = resp.json()
+    assert data["has_pending_target"] is False
+    assert data["pending_target_variant"] is None
+
+
+def test_admin_billing_reports_ab_test_stats_per_variant(db_session, client):
+    # button: 2 assigned, 1 started checkout, 0 activated
+    b1 = User(id="u-b1", email="b1@example.com", ab_pending_cta_variant="button")
+    b2 = User(id="u-b2", email="b2@example.com", ab_pending_cta_variant="button")
+    # direct: 1 assigned, 1 started checkout, 1 activated (trialing)
+    d1 = User(
+        id="u-d1", email="d1@example.com", ab_pending_cta_variant="direct",
+        subscription_status=SubscriptionStatus.trialing, plan=Plan.individual,
+    )
+    db_session.add_all([b1, b2, d1])
+    db_session.add(CheckoutAttempt(user_id="u-b1", plan="individual"))
+    db_session.add(CheckoutAttempt(user_id="u-d1", plan="individual"))
+    db_session.commit()
+
+    main.app.dependency_overrides[auth.require_admin] = lambda: auth.AuthUser(id="admin", email="admin@example.com")
+    try:
+        resp = client.get("/api/admin/billing")
+    finally:
+        main.app.dependency_overrides.pop(auth.require_admin, None)
+
+    assert resp.status_code == 200
+    by_variant = {row["variant"]: row for row in resp.json()["ab_pending_cta"]}
+    assert by_variant["button"] == {"variant": "button", "assigned": 2, "checkout_started": 1, "activated": 0}
+    assert by_variant["direct"] == {"variant": "direct", "assigned": 1, "checkout_started": 1, "activated": 1}
 
 
 def test_checkout_completion_activates_the_pending_target_and_checks_it(db_session):
