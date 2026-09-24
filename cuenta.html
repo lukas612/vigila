@@ -341,7 +341,7 @@
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="preLoginPlanCard">
       <h2>Elige tu plan</h2>
       <p class="sub"><b>15 días gratis.</b> Elige uno y te mandamos el código de acceso arriba — al entrar seguimos directas a activarlo.</p>
       <div class="plan-options">
@@ -986,6 +986,17 @@
       // only bring the form back if that send fails (so they can retry
       // with a corrected address); a plain visit to cuenta.html (no
       // ?email=) never hits this branch and keeps the normal form.
+      //
+      // Also hide the pre-login "Elige tu plan" card entirely — arriving
+      // here via ?email= only ever happens right after a free check (see
+      // index.html's wireEmail), so the account this code is about to log
+      // into already has a target pre-attached (main._pre_attach_
+      // waitlist_target) and will show the single-button "Activar
+      // vigilancia" CTA on the dashboard anyway. Showing a generic
+      // 2-plan pricing chooser here first is redundant with that, and
+      // premature — nobody's picking a plan before they've even entered
+      // the code.
+      document.getElementById('preLoginPlanCard').hidden = true;
       const sub = document.getElementById('loginSub');
       const label = document.getElementById('loginEmailLabel');
       const fieldRow = document.getElementById('loginFieldRow');
