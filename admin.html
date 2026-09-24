@@ -184,8 +184,8 @@
 <script>
   // This copy is served from GitHub Pages (a static host), so it always
   // needs the API's own origin — unlike the local dev copy under
-  // frontend/admin.html, which is served by the FastAPI app itself and
-  // can safely default to same-origin.
+  // frontend/admin.html, which is served by the FastAPI app itself and can
+  // safely default to same-origin.
   window.VIGILA_API_BASE = window.VIGILA_API_BASE || 'https://api.vigilamultas.com';
 </script>
 <script>
@@ -214,6 +214,14 @@
   function statusBadge(status){
     const cls = status === 'active' ? 'active' : status === 'none' ? 'none' : 'other';
     return `<span class="badge ${cls}">${escapeHtml(status)}</span>`;
+  }
+
+  // A subscription (trial or paid) that's not watching anything isn't
+  // protecting anyone and, on a trial, will get charged in 15 days having
+  // delivered zero value — worth flagging distinctly from a normal
+  // active/trialing row, not just buried in a "0" in the Vigilancias column.
+  function isInactiveSubscriber(u){
+    return (u.subscription_status === 'active' || u.subscription_status === 'trialing') && u.targets_count === 0;
   }
 
   function accountBadge(hasAccount, confirmed){
@@ -339,9 +347,16 @@
 
   function renderUsers(users){
     const tbody = document.getElementById('usersBody');
-    tbody.innerHTML = users.length
-      ? users.map(u => `
-          <tr>
+    // Stable partition, not a re-sort — keeps whatever order the backend
+    // already returns within each group, just pushes "subscribed but
+    // watching nothing" rows to the bottom so they don't get lost among
+    // everyone else.
+    const normal = users.filter(u => !isInactiveSubscriber(u));
+    const inactive = users.filter(isInactiveSubscriber);
+    const ordered = normal.concat(inactive);
+    tbody.innerHTML = ordered.length
+      ? ordered.map(u => `
+          <tr${isInactiveSubscriber(u) ? ' style="background:var(--alert-soft);"' : ''}>
             <td>${escapeHtml(u.email)}</td>
             <td>${accountBadge(u.has_account !== false, u.email_confirmed)}</td>
             <td>${freeCheckContextBadge(u.free_check_context)}</td>
@@ -349,7 +364,7 @@
             <td>${escapeHtml(u.phone || '—')}</td>
             <td>${formatDate(u.created_at)}</td>
             <td>${escapeHtml(u.plan || '—')}</td>
-            <td>${statusBadge(u.subscription_status)}</td>
+            <td>${statusBadge(u.subscription_status)}${isInactiveSubscriber(u) ? ' <span class="badge other">⚠ Inactiva — sin vigilancia</span>' : ''}</td>
             <td>${u.targets_count}</td>
             <td>${u.notifications_count}</td>
             <td>${(u.targets_full && u.targets_full.length) ? u.targets_full.map(escapeHtml).join(', ') : '—'}</td>

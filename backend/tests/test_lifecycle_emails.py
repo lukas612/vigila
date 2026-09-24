@@ -20,7 +20,7 @@ import pytest
 
 from app import billing, lifecycle_emails
 from app.db import SessionLocal, init_db
-from app.models import LifecycleEmailLog, Plan, SubscriptionStatus, User
+from app.models import LifecycleEmailLog, MonitoredId, Plan, SubscriptionStatus, User
 from scripts import send_lifecycle_emails
 
 
@@ -32,6 +32,7 @@ def db_session():
         yield session
     finally:
         session.query(LifecycleEmailLog).delete()
+        session.query(MonitoredId).delete()
         session.query(User).delete()
         session.commit()
         session.close()
@@ -63,13 +64,57 @@ def test_welcome_no_plan_0_sends_once_per_user(db_session, sent):
     assert len(sent) == 1
 
 
-def test_paid_3_cross_sell_only_targets_individual_plan(db_session, sent):
+def test_paid_3_cross_sell_only_targets_individual_plan_with_a_target_already(db_session, sent):
     familiar_user = _make_user(db_session, id="u-familiar", email="familiar@example.com", plan=Plan.familiar)
     individual_user = _make_user(db_session, id="u-individual", email="individual@example.com", plan=Plan.individual)
+    db_session.add(MonitoredId(user_id=individual_user.id, value_encrypted="x"))
+    db_session.commit()
 
     assert lifecycle_emails.send_welcome_paid_3(db_session, familiar_user) is False
     assert lifecycle_emails.send_welcome_paid_3(db_session, individual_user) is True
     assert sent == [("individual@example.com", "¿Vigilamos también a tu pareja, tu hijo o tu furgoneta?")]
+
+
+def test_paid_3_cross_sell_skipped_with_no_target_yet(db_session, sent):
+    # Pitching "vigilar más" to someone who hasn't vigilado anything yet is
+    # the wrong message — that case is welcome_paid_no_target_2's job.
+    individual_user = _make_user(db_session, id="u-individual", email="individual@example.com", plan=Plan.individual)
+    assert lifecycle_emails.send_welcome_paid_3(db_session, individual_user) is False
+    assert sent == []
+
+
+def test_welcome_paid_no_target_2_sends_only_while_targets_are_still_zero(db_session, sent):
+    user = _make_user(db_session, plan=Plan.individual)
+    assert lifecycle_emails.send_welcome_paid_no_target_2(db_session, user) is True
+    assert sent == [(user.email, "Tu plan Individual está activo, pero no vigila nada todavía")]
+
+    # Idempotent: a second call the same day (or a cron re-run) must not resend.
+    assert lifecycle_emails.send_welcome_paid_no_target_2(db_session, user) is False
+    assert len(sent) == 1
+
+
+def test_welcome_paid_no_target_2_skipped_once_a_target_exists(db_session, sent):
+    user = _make_user(db_session, plan=Plan.individual)
+    db_session.add(MonitoredId(user_id=user.id, value_encrypted="x"))
+    db_session.commit()
+
+    assert lifecycle_emails.send_welcome_paid_no_target_2(db_session, user) is False
+    assert sent == []
+
+
+def test_welcome_paid_30_uses_the_honest_no_target_variant(db_session, sent):
+    user = _make_user(db_session, plan=Plan.individual)
+    assert lifecycle_emails.send_welcome_paid_30(db_session, user) is True
+    assert sent == [(user.email, "Llevas un mes de suscripción, pero sin nada vigilado")]
+
+
+def test_welcome_paid_30_uses_the_normal_variant_once_something_is_watched(db_session, sent):
+    user = _make_user(db_session, plan=Plan.individual)
+    db_session.add(MonitoredId(user_id=user.id, value_encrypted="x"))
+    db_session.commit()
+
+    assert lifecycle_emails.send_welcome_paid_30(db_session, user) is True
+    assert sent == [(user.email, "Llevas un mes protegido — esto es lo que hemos comprobado por ti")]
 
 
 def test_checkout_completed_sends_welcome_paid_0_only_on_first_activation(db_session, sent):
@@ -133,6 +178,31 @@ def test_cron_only_sends_steps_whose_threshold_has_elapsed(db_session, sent):
 
     assert len(by_user["fresh@example.com"]) == 1  # only the day-2 step
     assert len(by_user["stale@example.com"]) == 3  # day 2, 5, and 10 all elapsed
+
+
+def test_cron_sends_the_no_target_nudge_to_paying_users_at_day_2(db_session, sent):
+    now = datetime.utcnow()
+    _make_user(
+        db_session, id="paid-no-target", email="paid-no-target@example.com", plan=Plan.individual,
+        subscription_status=SubscriptionStatus.trialing, subscribed_at=now - timedelta(days=3),
+    )
+    watched_user = _make_user(
+        db_session, id="paid-watched", email="paid-watched@example.com", plan=Plan.individual,
+        subscription_status=SubscriptionStatus.trialing, subscribed_at=now - timedelta(days=3),
+    )
+    db_session.add(MonitoredId(user_id=watched_user.id, value_encrypted="x"))
+    db_session.commit()
+
+    send_lifecycle_emails.run()
+
+    by_user: dict[str, list[str]] = {}
+    for to, subject in sent:
+        by_user.setdefault(to, []).append(subject)
+
+    assert "Tu plan Individual está activo, pero no vigila nada todavía" in by_user["paid-no-target@example.com"]
+    assert "paid-watched@example.com" not in by_user or all(
+        "no vigila nada" not in s for s in by_user["paid-watched@example.com"]
+    )
 
 
 def test_cron_is_idempotent_across_runs(db_session, sent):

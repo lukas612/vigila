@@ -345,6 +345,17 @@ three things behind `/api/admin/*`:
   (`AdminUserOut.targets_full`), fully decrypted from
   `MonitoredId.value_encrypted` — shown unmasked at the account owner's
   explicit request (2026-09).
+
+  Any row with an active or trialing subscription but `targets_count === 0`
+  (`isInactiveSubscriber` in `admin.html`) is flagged **"⚠ Inactiva — sin
+  vigilancia"** and sorted to the bottom of the table, client-side — a
+  subscription that isn't watching anything isn't protecting anyone, and
+  on a trial will get charged in `billing.TRIAL_PERIOD_DAYS` having
+  delivered zero value. No new backend field: `subscription_status` and
+  `targets_count` were already in the response, this just computes the
+  flag from them (2026-09). The same gap is also nudged from the user
+  side by `lifecycle_emails.send_welcome_paid_no_target_2` — see
+  "Lifecycle emails" below.
 - **Comprobaciones gratuitas**: aggregate totals from `checks_free` (how
   many checks, how many actually found a fine) plus a per-day breakdown.
 - **Estadísticas del BOE**: a "Rellenar días que falten" button that backfills
@@ -408,11 +419,20 @@ branches, keyed by whether the account has ever paid:
   reminds at day 2, 5 and 10 if they still haven't activated a plan —
   escalating from "here's what you get" to cost-of-missing-the-deadline to
   a last-call email.
-- **Just started paying** (`welcome_paid_0/3/30`): confirms the plan is
-  active and nudges them to add their first target (day 0 — they can't have
-  one yet, since `/api/targets` requires an active plan first), cross-sells
-  Individual → Familiar at day 3, and sends a real usage recap (checks run,
-  whether anything was found — via `NotificationRun`) at day 30.
+- **Just started paying** (`welcome_paid_0/no_target_2/3/30`): confirms
+  the plan is active and nudges them to add their first target (day 0 —
+  they can't have one yet, since `/api/targets` requires an active plan
+  first). If two days go by and they still haven't added one, a direct
+  `welcome_paid_no_target_2` follow-up fires — a trial running with
+  nothing to watch is wasted, and the day-0 nudge alone wasn't enough for
+  at least one real user (2026-09). Cross-sells Individual → Familiar at
+  day 3, but only once they've actually added at least one target
+  (`_targets_count_for_user` — pitching "vigilar más" before they've
+  vigilado anything at all is the wrong message). At day 30, sends a real
+  usage recap (checks run, whether anything was found — via
+  `NotificationRun`) if they have a target, or the honest "sin nada
+  vigilado" variant instead if they still don't — the normal recap would
+  otherwise misleadingly imply a month of protection that never happened.
 - **`payment_failed`**: sent straight from `billing.apply_event` on each
   *fresh* transition into `past_due` (not deduped through the table below —
   see its docstring — so a genuine fail → recover → fail-again cycle still

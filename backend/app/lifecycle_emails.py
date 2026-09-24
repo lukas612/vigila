@@ -180,6 +180,33 @@ def send_welcome_paid_0(db: Session, user: User) -> bool:
     return _send_once(db, user, LifecycleEmailKey.welcome_paid_0, subject, inner)
 
 
+def _targets_count_for_user(db: Session, user: User) -> int:
+    return db.query(MonitoredId).filter(MonitoredId.user_id == user.id).count()
+
+
+def _content_welcome_paid_no_target_2(user: User) -> tuple[str, str]:
+    plan_label = "Familiar" if user.plan == Plan.familiar else "Individual"
+    inner = f"""
+        <h2 style="color:#1B4D8C;margin-bottom:4px;">Tu plan {plan_label} está activo, pero no vigila nada todavía</h2>
+        <p>Hace dos días activaste tu prueba — pero no has añadido ningún DNI, NIE o matrícula, así que <b>no estamos revisando nada por ti</b>. Ahora mismo no te está protegiendo de nada.</p>
+        <p>Es un solo paso: entra en tu cuenta y añade lo que quieras vigilar. Se revisa al momento y luego dos veces al día.</p>
+        {_button(CUENTA_URL, "Añadir mi primera vigilancia")}
+        """
+    return f"Tu plan {plan_label} está activo, pero no vigila nada todavía", inner
+
+
+def send_welcome_paid_no_target_2(db: Session, user: User) -> bool:
+    """The day-0 welcome email already asks for a first target, but if two
+    days go by and one still hasn't been added, the trial is running with
+    nothing behind it — worth one direct nudge before it just quietly
+    lapses. Skipped once they've added at least one (no point nagging
+    someone who already did the thing)."""
+    if _targets_count_for_user(db, user) > 0:
+        return False
+    subject, inner = _content_welcome_paid_no_target_2(user)
+    return _send_once(db, user, LifecycleEmailKey.welcome_paid_no_target_2, subject, inner)
+
+
 def _content_welcome_paid_3() -> tuple[str, str]:
     inner = f"""
         <h2 style="color:#1B4D8C;margin-bottom:4px;">¿Vigilamos también a tu pareja, tu hijo o tu furgoneta?</h2>
@@ -192,9 +219,14 @@ def _content_welcome_paid_3() -> tuple[str, str]:
 
 def send_welcome_paid_3(db: Session, user: User) -> bool:
     """Cross-sell to Familiar — only makes sense for someone still on
-    Individual; the cron re-checks this every day so an eventual plan
-    switch within the window still gets a chance to see it."""
+    Individual, and only once they're actually watching something; pitching
+    "vigilar más" to someone with zero targets so far is the wrong message
+    at the wrong time (see welcome_paid_no_target_2 for that case instead).
+    The cron re-checks this every day so an eventual plan switch or a late
+    first target within the window still gets a chance to see it."""
     if user.plan != Plan.individual:
+        return False
+    if _targets_count_for_user(db, user) == 0:
         return False
     subject, inner = _content_welcome_paid_3()
     return _send_once(db, user, LifecycleEmailKey.welcome_paid_3, subject, inner)
@@ -235,7 +267,24 @@ def _content_welcome_paid_30(checks: int, found_any: bool) -> tuple[str, str]:
     return "Llevas un mes protegido — esto es lo que hemos comprobado por ti", inner
 
 
+def _content_welcome_paid_30_no_target() -> tuple[str, str]:
+    """checks==0 at day 30 doesn't mean "no news" — it means no target was
+    ever added, so nothing has actually been checked. The regular content
+    above would falsely read as a month of protection; this is the honest
+    version of the same email for that case."""
+    inner = f"""
+        <h2 style="color:#D93025;margin-bottom:4px;">Llevas un mes de suscripción, pero sin nada vigilado</h2>
+        <p>Tu plan lleva activo un mes — pero nunca llegaste a añadir un DNI, NIE o matrícula, así que en todo este tiempo <b>no hemos revisado nada por ti</b>.</p>
+        <p>Es un paso de diez segundos. Si lo añades ahora, empezamos a revisarlo al momento.</p>
+        {_button(CUENTA_URL, "Añadir mi primera vigilancia")}
+        """
+    return "Llevas un mes de suscripción, pero sin nada vigilado", inner
+
+
 def send_welcome_paid_30(db: Session, user: User) -> bool:
+    if _targets_count_for_user(db, user) == 0:
+        subject, inner = _content_welcome_paid_30_no_target()
+        return _send_once(db, user, LifecycleEmailKey.welcome_paid_30, subject, inner)
     checks = _checks_run_for_user(db, user)
     found_any = _any_match_found_for_user(db, user)
     subject, inner = _content_welcome_paid_30(checks, found_any)

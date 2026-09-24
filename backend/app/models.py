@@ -244,6 +244,7 @@ class LifecycleEmailKey(str, enum.Enum):
     welcome_no_plan_5 = "welcome_no_plan_5"
     welcome_no_plan_10 = "welcome_no_plan_10"
     welcome_paid_0 = "welcome_paid_0"
+    welcome_paid_no_target_2 = "welcome_paid_no_target_2"
     welcome_paid_3 = "welcome_paid_3"
     welcome_paid_30 = "welcome_paid_30"
 

@@ -32,6 +32,7 @@ _NO_PLAN_STEPS = (
     (10, lifecycle_emails.send_welcome_no_plan_10),
 )
 _PAID_STEPS = (
+    (2, lifecycle_emails.send_welcome_paid_no_target_2),
     (3, lifecycle_emails.send_welcome_paid_3),
     (30, lifecycle_emails.send_welcome_paid_30),
 )
