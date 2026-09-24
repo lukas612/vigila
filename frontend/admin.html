@@ -108,8 +108,8 @@
   </div>
 
   <div class="state" id="deniedState" hidden>
-    <h2>No tienes acceso a este panel</h2>
-    <p>Inicia sesión con la cuenta de administrador en <a href="cuenta.html">Mi cuenta</a>.</p>
+    <h2 id="deniedTitle">No tienes acceso a este panel</h2>
+    <p id="deniedBody">Inicia sesión con la cuenta de administrador en <a href="cuenta.html">Mi cuenta</a>.</p>
   </div>
 
   <div id="content" hidden>
@@ -400,7 +400,7 @@
         document.getElementById('deniedState').hidden = false;
         return;
       }
-      if(!usersResp.ok) throw new Error('users fetch failed');
+      if(!usersResp.ok) throw new Error('users fetch failed (' + usersResp.status + ')');
 
       renderUsers(await usersResp.json());
       await loadBilling();
@@ -410,7 +410,17 @@
       document.getElementById('loadingState').hidden = true;
       document.getElementById('content').hidden = false;
     }catch(e){
+      // This used to fall through to the exact same "No tienes acceso"
+      // message as a real 403 — which meant a genuine bug in any of the
+      // renders above (a bad response shape, a missing element, etc.)
+      // looked identical to a permissions problem and left nothing in the
+      // console to debug from. Log it and say so plainly instead.
+      console.error('admin.html failed to load:', e);
       document.getElementById('loadingState').hidden = true;
+      document.getElementById('deniedTitle').textContent = 'Algo ha fallado cargando el panel';
+      document.getElementById('deniedBody').innerHTML =
+        'No es un problema de permisos — hubo un error real: <code>' + escapeHtml(String(e && e.message || e)) + '</code>.'
+        + ' Revisa la consola del navegador para más detalle.';
       document.getElementById('deniedState').hidden = false;
     }
   }
