@@ -316,6 +316,7 @@
 <main class="wrap-narrow">
   <div class="state" id="loadingState">
     <h2>Comprobando tu sesión…</h2>
+    <p id="loadingError" hidden style="color:var(--alert);font-size:13px;max-width:60ch;margin:14px auto 0;"></p>
   </div>
 
   <div id="loginState" hidden>
@@ -496,9 +497,26 @@
   // persistSession:false on purpose — the browser session cookie our own
   // API sets (HttpOnly) is the real source of truth from here on, so
   // there's no reason for Supabase's tokens to also sit in localStorage.
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, detectSessionInUrl: true },
-  });
+  //
+  // window.supabase.createClient throwing here (the CDN script never
+  // loaded — an ad/privacy blocker is the usual cause) used to kill this
+  // entire IIFE synchronously, before init() even ran, leaving the page
+  // stuck on "Comprobando tu sesión…" with literally nothing in the
+  // console. A stub whose methods reject turns that into an ordinary
+  // rejected promise init()'s own try/catch already handles, so there's a
+  // real, visible error either way.
+  let supabase;
+  try{
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, detectSessionInUrl: true },
+    });
+  }catch(e){
+    console.error('Failed to load the Supabase client script (ad/privacy blocker?):', e);
+    const rejectWithReason = () => Promise.reject(new Error(
+      'No se pudo cargar el script de inicio de sesión (revisa si tienes un bloqueador de anuncios activo).'
+    ));
+    supabase = { auth: { getSession: rejectWithReason, signInWithOtp: rejectWithReason, verifyOtp: rejectWithReason } };
+  }
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1047,15 +1065,27 @@
       history.replaceState(null, '', window.location.pathname);
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if(session){
-      await exchangeSession(session);
+    try{
+      const { data: { session } } = await supabase.auth.getSession();
+      if(session){
+        await exchangeSession(session);
+        const me = await fetchMe();
+        if(me){ showDashboard(me); if(billingParam === 'success') pollPlanAfterCheckout(); return; }
+      }
       const me = await fetchMe();
       if(me){ showDashboard(me); if(billingParam === 'success') pollPlanAfterCheckout(); return; }
+      showLogin(emailParam);
+    }catch(e){
+      // Without this, any exception here (supabase-js failing to load from
+      // its CDN — an ad/privacy blocker is the usual cause, a network
+      // blip, anything) left the page stuck on "Comprobando tu sesión…"
+      // forever with nothing in the console to explain why, since nothing
+      // downstream of the throw ever ran to hide loadingState.
+      console.error('cuenta.html failed to load:', e);
+      const errorEl = document.getElementById('loadingError');
+      errorEl.textContent = 'No se pudo comprobar tu sesión: ' + (e && e.message || e) + '. Prueba a recargar la página.';
+      errorEl.hidden = false;
     }
-    const me = await fetchMe();
-    if(me){ showDashboard(me); if(billingParam === 'success') pollPlanAfterCheckout(); return; }
-    showLogin(emailParam);
   }
 
   init();
