@@ -177,6 +177,41 @@ def test_me_endpoint_reports_the_pending_target_and_its_variant(db_session, clie
     assert data["pending_target_variant"] == "direct"
 
 
+def test_me_endpoint_picks_up_a_waitlist_value_left_after_the_account_already_existed(db_session, client):
+    # Exactly the bug a real user hit: already logged in (session cookie
+    # still valid, so no fresh /api/auth/session -> _ensure_profile call
+    # happens at all), does ANOTHER free check with the same email, and
+    # only then hits /api/auth/me on a page reload. This must still pick
+    # up the new value — pre-attaching can't be limited to the moment the
+    # account was first created.
+    profile = User(id="u-returning", email="returning@example.com")
+    db_session.add(profile)
+    db_session.commit()
+
+    main.app.dependency_overrides[auth.get_current_user] = lambda: auth.AuthUser(
+        id="u-returning", email="returning@example.com"
+    )
+    try:
+        resp = client.get("/api/auth/me")
+        assert resp.json()["has_pending_target"] is False  # nothing waiting yet
+
+        # A free check + email capture happens *after* that first check-in.
+        db_session.add(WaitlistSignup(
+            email="returning@example.com", context="ok", value_encrypted=crypto.encrypt_value("99999999R"),
+        ))
+        db_session.commit()
+
+        resp = client.get("/api/auth/me")
+    finally:
+        main.app.dependency_overrides.pop(auth.get_current_user, None)
+
+    data = resp.json()
+    assert data["has_pending_target"] is True
+    target = db_session.query(MonitoredId).filter_by(user_id="u-returning").first()
+    assert crypto.decrypt_value(target.value_encrypted) == "99999999R"
+    assert target.active is False
+
+
 def test_me_endpoint_variant_is_null_without_a_pending_target(db_session, client):
     profile = User(id="u-me2", email="me2@example.com")
     db_session.add(profile)

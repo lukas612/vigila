@@ -312,8 +312,19 @@ def _ensure_profile(db: Session, user: auth.AuthUser) -> bool:
 
 
 def _has_pending_target(db: Session, profile: User | None) -> bool:
+    """True if this account has no active plan but does have at least one
+    saved target waiting for one. Syncs first (_pre_attach_waitlist_target)
+    rather than just reading — _ensure_profile only ever pre-attaches at
+    the moment an account is FIRST created, so someone who was already
+    logged in (session cookie still valid — no fresh _ensure_profile call
+    at all, since that only runs from create_session) and then does
+    another free check with the same email would never have it picked up
+    otherwise. Calling this on every /api/auth/me, not just at login,
+    closes that gap. _pre_attach_waitlist_target is itself a no-op once a
+    target already exists, so calling it here on every check-in is safe."""
     if profile is None or _max_targets(profile) > 0:
         return False
+    _pre_attach_waitlist_target(db, profile)
     return db.query(MonitoredId).filter(MonitoredId.user_id == profile.id).count() > 0
 
 

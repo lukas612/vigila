@@ -428,7 +428,7 @@
       <div class="field-error" id="planError"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="addTargetCard">
       <h2>Añadir vigilancia</h2>
       <p class="sub">Guarda un DNI, NIE o matrícula. Lo revisamos automáticamente y verás aquí cualquier notificación que encontremos.</p>
       <div class="field-error" id="targetLocked" style="display:none;background:var(--surface);color:var(--ink-soft);padding:10px 12px;border-radius:var(--radius-sm);margin-bottom:14px;">
@@ -672,6 +672,13 @@
     ['targetValue', 'targetLabel', 'targetConsent', 'addTargetBtn'].forEach(id => {
       document.getElementById(id).disabled = locked;
     });
+    // Showing a disabled "add a target" form with the value already
+    // sitting in it (from the sessionStorage carry-through, see
+    // pickUpPendingTarget) but nothing clickable was real, confirmed bad
+    // UX — there's already one pre-attached and waiting (has_pending_
+    // target), so the whole card is just noise until there's a plan to
+    // add a *second* one to.
+    document.getElementById('addTargetCard').hidden = me.has_pending_target;
   }
 
   document.getElementById('activatePendingBtn').addEventListener('click', () => {
