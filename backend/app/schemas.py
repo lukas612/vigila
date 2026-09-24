@@ -33,6 +33,13 @@ class CheckResponse(BaseModel):
 class WaitlistRequest(BaseModel):
     email: str = Field(..., min_length=3, max_length=320)
     context: str = Field("ok", description="'ok' o 'alert' — desde qué resultado se suscribe")
+    value: str | None = Field(
+        None,
+        min_length=5,
+        max_length=20,
+        description="DNI, NIE o matrícula que se acaba de comprobar, si este email viene justo de un check — "
+        "se pre-asocia a la cuenta (inactiva, sin vigilar) en cuanto la persona inicia sesión por primera vez",
+    )
 
 
 class LocalityStat(BaseModel):
@@ -90,6 +97,11 @@ class MeResponse(BaseModel):
     subscription_status: str = "none"
     max_targets: int = 0
     is_new_user: bool = Field(False, description="True only on the exact call that created the profile row")
+    has_pending_target: bool = Field(
+        False,
+        description="No hay plan activo, pero ya tiene al menos un DNI/NIE/matrícula guardado (normalmente "
+        "pre-asociado desde una comprobación gratuita) esperando a que se active un plan para empezar a vigilarlo",
+    )
 
 
 class CheckoutRequest(BaseModel):

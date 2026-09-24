@@ -17,8 +17,8 @@ from datetime import datetime
 import httpx
 from sqlalchemy.orm import Session
 
-from . import lifecycle_emails
-from .models import CheckoutAttempt, Plan, SubscriptionStatus, User
+from . import lifecycle_emails, monitoring
+from .models import CheckoutAttempt, MonitoredId, Plan, SubscriptionStatus, User
 
 logger = logging.getLogger("vigila")
 
@@ -254,9 +254,34 @@ def apply_event(db: Session, event: dict) -> None:
         )
         if attempt:
             attempt.completed_subscription = True
+        # Activate any target pre-attached before this account had a plan
+        # (main._pre_attach_waitlist_target, from the free-check email
+        # capture) — that's the whole point of the "Activar vigilancia"
+        # single-button flow: the identifier is already there, waiting.
+        # Capped at the plan's own limit exactly like main.create_target,
+        # even though in practice there's at most one such row.
+        limit = PLAN_TARGET_LIMITS.get(user.plan, 0) if user.plan else 0
+        newly_activated = (
+            db.query(MonitoredId)
+            .filter(MonitoredId.user_id == user.id, MonitoredId.active.is_(False))
+            .order_by(MonitoredId.created_at.asc())
+            .limit(limit)
+            .all()
+        )
+        for target in newly_activated:
+            target.active = True
         db.commit()
         if is_first_trial_start:
             lifecycle_emails.send_welcome_paid_0(db, user)
+        # Check it right away instead of waiting for the next twice-daily
+        # cron run — same reasoning as main.create_target's own immediate
+        # check. Best-effort: a failure here must never undo the
+        # activation itself, it'll just get picked up by the next cron pass.
+        for target in newly_activated:
+            try:
+                monitoring.check_target(db, target)
+            except Exception:  # noqa: BLE001 - activation must still succeed
+                logger.exception("initial check failed for newly-activated target %s", target.id)
 
     elif event_type in ("customer.subscription.updated", "customer.subscription.created"):
         customer_id = obj.get("customer")

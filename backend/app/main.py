@@ -254,6 +254,35 @@ def social_proof(db: Session = Depends(get_db)) -> SocialProofResponse:
     )
 
 
+def _pre_attach_waitlist_target(db: Session, profile: User) -> None:
+    """If this email left one on the free-check result CTA (index.html's
+    wireEmail -> POST /api/waitlist with a value), pre-attach that
+    DNI/NIE/matrícula to the brand-new account as an *inactive* target —
+    so by the time they've logged in, there's already something to
+    activate, instead of asking them to type the same value a second
+    time. Inactive means the twice-daily cron (which filters on
+    MonitoredId.active, see scripts/check_monitored_targets.py) leaves it
+    alone until billing.apply_event flips it on when a real checkout
+    completes; /api/targets' plan-gate stops anyone from adding MORE
+    targets without a plan same as always, this only ever pre-seeds the
+    one they already told us about. Only the most recent matching signup
+    counts, same "latest wins" rule as elsewhere (_latest_waitlist_by_email).
+    A no-op if that email never left a value, or the account already has
+    a target from some other path."""
+    if db.query(MonitoredId).filter(MonitoredId.user_id == profile.id).count() > 0:
+        return
+    signup = (
+        db.query(WaitlistSignup)
+        .filter(WaitlistSignup.email == profile.email.lower(), WaitlistSignup.value_encrypted.isnot(None))
+        .order_by(WaitlistSignup.created_at.desc())
+        .first()
+    )
+    if not signup:
+        return
+    db.add(MonitoredId(user_id=profile.id, value_encrypted=signup.value_encrypted, active=False))
+    db.commit()
+
+
 def _ensure_profile(db: Session, user: auth.AuthUser) -> bool:
     """Create the billing-fields profile row on first login. Identity
     itself already exists in Supabase's auth.users — this just gives it
@@ -268,7 +297,14 @@ def _ensure_profile(db: Session, user: auth.AuthUser) -> bool:
     db.add(profile)
     db.commit()
     lifecycle_emails.send_welcome_no_plan_0(db, profile)
+    _pre_attach_waitlist_target(db, profile)
     return True
+
+
+def _has_pending_target(db: Session, profile: User | None) -> bool:
+    if profile is None or _max_targets(profile) > 0:
+        return False
+    return db.query(MonitoredId).filter(MonitoredId.user_id == profile.id).count() > 0
 
 
 @app.post("/api/auth/session", response_model=MeResponse)
@@ -291,6 +327,7 @@ def create_session(payload: SessionRequest, response: Response, db: Session = De
         subscription_status=profile.subscription_status.value,
         max_targets=_max_targets(profile),
         is_new_user=is_new_user,
+        has_pending_target=_has_pending_target(db, profile),
     )
 
 
@@ -308,6 +345,7 @@ def me(user: auth.AuthUser = Depends(auth.get_current_user), db: Session = Depen
         plan=profile.plan.value if profile and profile.plan else None,
         subscription_status=profile.subscription_status.value if profile else SubscriptionStatus.none.value,
         max_targets=_max_targets(profile),
+        has_pending_target=_has_pending_target(db, profile),
     )
 
 
@@ -873,7 +911,18 @@ def admin_billing(
 def waitlist(payload: WaitlistRequest, db: Session = Depends(get_db)) -> dict[str, bool]:
     if "@" not in payload.email:
         raise HTTPException(status_code=422, detail="Email inválido")
-    db.add(WaitlistSignup(email=payload.email.strip().lower(), context=payload.context))
+    value_encrypted = None
+    if payload.value:
+        try:
+            value_encrypted = crypto.encrypt_value(validate_identifier(payload.value))
+        except InvalidIdentifier:
+            # Whoever's calling this already ran the same value through
+            # /api/check successfully moments earlier (see index.html) — an
+            # invalid value here means something odd, not a real signup
+            # error. Capturing the email is the actual point of this
+            # endpoint, so don't fail the whole request over it.
+            logger.warning("waitlist signup with an unvalidatable value, ignoring it")
+    db.add(WaitlistSignup(email=payload.email.strip().lower(), context=payload.context, value_encrypted=value_encrypted))
     db.commit()
     return {"ok": True}
 

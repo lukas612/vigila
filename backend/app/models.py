@@ -161,6 +161,14 @@ class WaitlistSignup(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
     context: Mapped[str] = mapped_column(String(20), nullable=False)  # "ok" | "alert"
+    # Fernet ciphertext of the DNI/NIE/matrícula that was just checked, when
+    # this signup came right off a free check (index.html's wireEmail) — the
+    # pricing-card email capture has no check behind it, so this stays null
+    # there. Same key/scheme as MonitoredId.value_encrypted (see crypto.py),
+    # so it can be copied straight across without a decrypt/re-encrypt round
+    # trip — see main._ensure_profile, which does exactly that to pre-attach
+    # this value to the account the first time this email ever logs in.
+    value_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 

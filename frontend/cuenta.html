@@ -392,6 +392,12 @@
       <div class="plan-status">
         <div class="plan-status-text" id="planStatusText"></div>
       </div>
+      <div id="pendingTargetCta" hidden style="text-align:center;padding:18px 0;">
+        <p style="margin:0 0 4px;font-weight:600;">Ya tenemos guardado <span id="pendingTargetValue" style="font-family:var(--font-mono);"></span></p>
+        <p class="sub" style="margin:0 0 16px;">Solo falta activarlo — <b>15 días gratis, 1,99€/mes después</b>, cancela cuando quieras.</p>
+        <button class="btn-accent" id="activatePendingBtn" style="padding:14px 28px;font-size:15.5px;">Activar vigilancia</button>
+        <p style="margin:14px 0 0;"><a href="#" id="showOtherPlansLink" style="color:var(--ink-faint);font-size:13px;text-decoration:underline;">o elige otro plan</a></p>
+      </div>
       <div class="plan-options" id="planOptions" hidden>
         <div class="plan-option">
           <div class="plan-option-name">Individual</div>
@@ -600,10 +606,17 @@
     active: 'Activo', trialing: 'Prueba', past_due: 'Pago pendiente', canceled: 'Cancelado', none: 'Sin plan',
   };
 
+  // Set true by the "o elige otro plan" link — once someone's asked to see
+  // the full chooser, keep showing it even if renderPlan re-runs (e.g.
+  // after pollPlanAfterCheckout), instead of snapping back to the single-
+  // button CTA underneath them.
+  let showFullPlanChooser = false;
+
   function renderPlan(me){
     currentMe = me;
     const statusText = document.getElementById('planStatusText');
     const options = document.getElementById('planOptions');
+    const pendingCta = document.getElementById('pendingTargetCta');
     const sub = document.getElementById('planSub');
     const menuBillingBtn = document.getElementById('menuBillingBtn');
     const badgeClass = ['active', 'trialing'].includes(me.subscription_status) ? 'active' : me.subscription_status;
@@ -615,7 +628,14 @@
       statusText.innerHTML = `Sin suscripción activa${badge}`;
       sub.innerHTML = 'Necesitas un plan para vigilar DNI/NIE/matrículas. <b>15 días gratis</b> — cancela cuando quieras.';
     }
-    options.hidden = me.max_targets > 0;
+    // A pre-associated target (from the free-check email capture — see
+    // main._pre_attach_waitlist_target) means we already know what to
+    // vigilar: skip the "pick between two plans" decision and show one
+    // direct "Activar vigilancia" button instead, unless they've asked to
+    // see the full chooser anyway.
+    const showPending = me.has_pending_target && me.max_targets === 0 && !showFullPlanChooser;
+    pendingCta.hidden = !showPending;
+    options.hidden = me.max_targets > 0 || showPending;
     menuBillingBtn.hidden = !me.plan;
 
     const locked = me.max_targets === 0;
@@ -624,6 +644,16 @@
       document.getElementById(id).disabled = locked;
     });
   }
+
+  document.getElementById('activatePendingBtn').addEventListener('click', () => {
+    gaEvent('select_plan', { plan: 'individual', method: 'pending_target_cta', page: 'cuenta', logged_in: true });
+    startCheckout('individual', document.getElementById('activatePendingBtn'), 'pending_target');
+  });
+  document.getElementById('showOtherPlansLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    showFullPlanChooser = true;
+    if(currentMe) renderPlan(currentMe);
+  });
 
   const accountMenuBtn = document.getElementById('accountMenuBtn');
   const accountMenu = document.getElementById('accountMenu');
@@ -732,6 +762,15 @@
     sub.textContent = max
       ? `${targets.length} de ${max} vigilancias usadas`
       : (targets.length ? `${targets.length} vigilancia(s) — suscríbete para añadir más` : 'Suscríbete a un plan para empezar a vigilar.');
+
+    // The single-button "Activar vigilancia" CTA (see renderPlan) names
+    // the value it's about to activate — it's the pending, not-yet-active
+    // target pre-attached from the free-check email capture.
+    if(currentMe && currentMe.has_pending_target && targets.length){
+      const pendingValueEl = document.getElementById('pendingTargetValue');
+      if(pendingValueEl) pendingValueEl.textContent = targets[0].value_masked;
+    }
+
     if(!targets.length){
       list.innerHTML = '';
       empty.hidden = false;

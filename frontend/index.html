@@ -939,10 +939,16 @@ section.cta-band{
       gaEvent('lead_email_submit', { context });
       b.disabled = true;
       try{
+        // The checked value rides along here too, not just in
+        // sessionStorage below — this is what lets main._pre_attach_
+        // waitlist_target pre-associate it with the account server-side,
+        // permanently, the first time this email ever logs in (works even
+        // days later, or from a different device — sessionStorage only
+        // covers "still in this same tab").
         await fetch(API_BASE + '/api/waitlist', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({email: val, context: context})
+          body: JSON.stringify({email: val, context: context, value: lastCheckedValue || undefined})
         });
       }catch(e){ /* best-effort: still show confirmation, we don't want to punish the user for a network blip */ }
       c.classList.add('show');

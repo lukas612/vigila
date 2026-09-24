@@ -216,6 +216,61 @@ want watched.
    off Supabase's shared mailer, which has a low project-wide rate limit
    that a few quick retries can exhaust for up to an hour.
 
+## Pre-attached targets ("Activar vigilancia" single-button flow)
+
+The free-check-to-subscribe funnel used to ask for the same DNI/NIE/
+matrícula twice: once on the free check, and again on the dashboard after
+signing up. Since 2026-09, the value is pre-attached to the account
+server-side, so by the time someone logs in there's already something
+waiting to activate, not a form to fill in:
+
+1. **Free check + email left** (`index.html`'s `wireEmail`): `POST
+   /api/waitlist` now carries the just-checked value alongside the email
+   (`WaitlistRequest.value`, optional — the pricing-card email capture has
+   no check behind it and never sends one). `main.waitlist` validates and
+   encrypts it into `WaitlistSignup.value_encrypted` (same Fernet key/
+   scheme as `MonitoredId`, see `crypto.py`) — an unvalidatable value is
+   logged and dropped rather than failing the whole signup, since
+   capturing the email is the point of this endpoint.
+2. **First login** (`main._ensure_profile` → `_pre_attach_waitlist_target`):
+   looks up that email's most recent `WaitlistSignup` with a value and, if
+   the new account has no targets yet, copies the ciphertext straight into
+   a new `MonitoredId` row with `active=False` — no decrypt/re-encrypt
+   needed, same key. Inactive means the twice-daily cron
+   (`MonitoredId.active`, see `scripts/check_monitored_targets.py`) leaves
+   it alone; `/api/targets`' usual plan-gate is untouched, this is the only
+   path that can create a target for an account with no plan.
+3. **Dashboard, still no plan** (`GET/POST /api/auth/me` /
+   `/api/auth/session` → `MeResponse.has_pending_target`, computed by
+   `main._has_pending_target`): `cuenta.html` shows one "Activar
+   vigilancia" button (with the masked pending value) instead of the
+   normal two-plan chooser — clicking it calls `POST /api/billing/checkout`
+   for the Individual plan directly, skipping a decision that's already
+   obvious with a single target. An "o elige otro plan" link still reveals
+   the normal chooser for anyone who wants Familiar instead.
+4. **Checkout completes** (`billing.apply_event`,
+   `checkout.session.completed`): flips the account's inactive
+   `MonitoredId` row(s) (capped at the plan's own limit, same as
+   `main.create_target`) to `active=True` and runs the first BOE check
+   immediately — same "don't make them wait for the next cron pass"
+   reasoning as `create_target`'s own immediate check, best-effort so a
+   check failure never undoes the activation.
+
+Consent note: this only ever pre-*attaches* a value the person already
+typed themselves on the free check, gated behind the same privacy-policy
+checkbox as the rest of the waitlist capture — it never starts monitoring
+anything without the separate, explicit act of actually subscribing
+(step 4). No new consent checkbox was added for the pre-attach step itself
+since nothing is being watched yet at that point; worth a copy pass on the
+waitlist checkbox if that gap ever needs to be made more explicit.
+
+A natural next step (mentioned as a future A/B test, not built yet): skip
+the button entirely and send someone with a pending target straight into
+Stripe Checkout the moment they land on `cuenta.html` logged in, instead
+of showing the CTA first.
+
+Tests: `tests/test_pending_target.py`.
+
 ## Billing (Stripe)
 
 `app/billing.py` — raw `httpx` calls against Stripe's REST API (no SDK,
